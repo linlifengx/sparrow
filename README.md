@@ -1,14 +1,14 @@
 Sparrow is a C-like language. Its compiler 'sprc' is implemented with llvm(version 3.2svn).
 
-Requirement
+Requirement  
 	flex 2.5+
 	bison 2.4+
 	llvm 3.2+
 
-Compiling
+Compiling  
 	make all
 
-Run
+Run  
 	./sprc <programfile> [options] 
 		
 		It will run <programfile> just in time with no option.
