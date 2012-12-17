@@ -72,19 +72,18 @@ Value* BinaryExpr::codeGen(AstContext &astContext){
 			}
 		}
 	}
-	string msg = "invalid operands to binary expression ("+getTypeName(lv->getType())+
+	errorMsg = "invalid operands to binary expression ("+getTypeName(lv->getType())+
 				 " "+getOperatorName(op)+" "+getTypeName(rv->getType())+")";
-	throwError(this,msg);
+	throwError(this);
 }
 
 Value* LogicExpr::codeGen(AstContext &astContext){
 	Function *currentFunc = astContext.currentFunc->llvmFunction;
 	Value *res = builder.CreateAlloca(builder.getInt1Ty());
 	Value *lv = lexpr.codeGen(astContext);
-	try{
-		lv = createCast(lv,builder.getInt1Ty());
-	}catch(string msg){
-		throwError(&lexpr,msg);
+	lv = createCast(lv,builder.getInt1Ty());
+	if(lv == NULL){
+		throwError(&lexpr);
 	}
 	builder.CreateStore(lv,res);
 	BasicBlock *rexprBB = BasicBlock::Create(context,"",currentFunc);
@@ -97,10 +96,9 @@ Value* LogicExpr::codeGen(AstContext &astContext){
 
 	builder.SetInsertPoint(rexprBB);
 	Value *rv = rexpr.codeGen(astContext);
-	try{
-		rv = createCast(rv,builder.getInt1Ty());
-	}catch(string msg){
-		throwError(&rexpr,msg);
+	rv = createCast(rv,builder.getInt1Ty());
+	if(rv == NULL){
+		throwError(&rexpr);
 	}
 	builder.CreateStore(rv,res);
 	builder.CreateBr(endBB);
@@ -123,26 +121,23 @@ Value* PrefixExpr::codeGen(AstContext &astContext){
 			return builder.CreateNot(val);
 		}
 	}
-	string msg = "invalid argument type '"+getTypeName(val->getType())+
+	errorMsg = "invalid argument type '"+getTypeName(val->getType())+
 				 "' to unary '"+getOperatorName(op)+"'expression";
-	throwError(this,msg);
+	throwError(this);
 }
 
 Value* IdentExpr::codeGen(AstContext &astContext){
-	try{
-		Value *var = astContext.getVar(ident);
-		return builder.CreateLoad(var);
-	}catch(string msg){
-		throwError(this,msg);
+	Value *var = astContext.getVar(ident);
+	if(var == NULL){
+		throwError(this);
 	}
+	return builder.CreateLoad(var);
 }
 
 vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
-	MyFunction *myfunc = NULL;
-	try{
-		myfunc =  astContext.getFunction(funcName);
-	}catch(string msg){
-		throwError(this,msg);
+	MyFunction *myfunc = astContext.getFunction(funcName);
+	if(myfunc == NULL){
+		throwError(this);
 	}
 	vector<Type*> &argTypes = myfunc->argTypes;
 	vector<Value*> exprListValues;
@@ -151,7 +146,8 @@ vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
 		exprListValues.push_back(expr->codeGen(astContext));
 	}
 	if(exprListValues.size() < argTypes.size()){
-		throwError(this,"too few arguments to function '"+funcName+"''");
+		errorMsg = "too few arguments to function '"+funcName+"''";
+		throwError(this);
 	}else if(exprListValues.size() > argTypes.size()){
 		cout<<"too many arguments to function '"<<funcName<<"'"<<endl;
 	}
@@ -162,11 +158,11 @@ vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
 	}else{
 		vector<Value*> argValues;
 		for(unsigned i=0; i < argTypes.size(); i++){
-			try{
-				argValues.push_back(createCast(exprListValues[i],argTypes[i]));
-			}catch(string msg){
-				throwError(exprList[i],msg);
+			Value *v = createCast(exprListValues[i],argTypes[i]);
+			if(v == NULL){
+				throwError(exprList[i]);
 			}
+			argValues.push_back(v);
 		}
 		ArrayRef<Value*> args(argValues);
 		callResult = builder.CreateCall(myfunc->llvmFunction,args);

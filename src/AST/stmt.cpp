@@ -2,11 +2,9 @@
 #include "parser.hpp"
 
 void VarDecl::codeGen(AstContext &astContext){
-	Type *type = NULL;
-	try{
-		type = astContext.getType(typeName);
-	}catch(string msg){
-		throwError(this,msg);
+	Type *type = astContext.getType(typeName);
+	if(type == NULL){
+		throwError(this);
 	}
 	
 	for(unsigned i = 0; i < varInitList.size(); i++){
@@ -15,42 +13,35 @@ void VarDecl::codeGen(AstContext &astContext){
 		Value *v = NULL;
 		if(varInit->expr != NULL){
 			v = varInit->expr->codeGen(astContext);
-			try{
-				v = createCast(v,type);
-			}catch(string msg){
-				throwError(varInit->expr,msg);
+			v = createCast(v,type);
+			if(v == NULL){
+				throwError(varInit->expr);
 			}
 		}else{
-			try{
-				v = getInitial(type);}
-			catch(string msg){
-				throwError(this,msg);
+			v = getInitial(type);
+			if(v == NULL){
+				throwError(this);
 			}
 		}
 		var = builder.CreateAlloca(type);
 		builder.CreateStore(v,var);
-		try{
-			astContext.addVar(varInit->varName,var);
-		}catch(string msg){
-			throwError(varInit,msg);
+		if(!astContext.addVar(varInit->varName,var)){
+			throwError(varInit);
 		}
 	}
 }
 
 void VarAssi::codeGen(AstContext &astContext){
-	Value *var = NULL;
-	try{
-		var = astContext.getVar(varName);
-	}catch(string msg){
-		throwError(this,msg);
+	Value *var = astContext.getVar(varName);
+	if(var == NULL){
+		throwError(this);
 	}
 	
 	Value *value = expr.codeGen(astContext);
 	PointerType *pt = static_cast<PointerType*>(var->getType());
-	try{
-		value = createCast(value,pt->getElementType());
-	}catch(string msg){
-		throwError(&expr,msg);
+	value = createCast(value,pt->getElementType());
+	if(value == NULL){
+		throwError(&expr);
 	}
 	builder.CreateStore(value,var);
 }
@@ -62,11 +53,9 @@ void MultiVarAssi::codeGen(AstContext &astContext){
 		if(varName == ""){
 			vars.push_back(NULL);
 		}else{
-			Value *var = NULL;
-			try{
-				var = astContext.getVar(varName);
-			}catch(string msg){
-				throwError(this,msg);
+			Value *var = astContext.getVar(varName);
+			if(var == NULL){
+				throwError(this);
 			}
 			vars.push_back(var);
 		}
@@ -74,7 +63,8 @@ void MultiVarAssi::codeGen(AstContext &astContext){
 	
 	vector<Value*> values = callExpr.multiCodeGen(astContext);
 	if(values.size() < vars.size()){
-		throwError(&callExpr,"too few values returned from function '"+callExpr.funcName+"'");
+		errorMsg = "too few values returned from function '"+callExpr.funcName+"'";
+		throwError(&callExpr);
 	}
 	for(unsigned i=0; i < vars.size(); i++){
 		if(vars[i] == NULL){
@@ -82,10 +72,9 @@ void MultiVarAssi::codeGen(AstContext &astContext){
 		}
 		Value *v = values[i];
 		PointerType *pt = static_cast<PointerType*>(vars[i]->getType());
-		try{
-			v = createCast(v,pt->getElementType());
-		}catch(string msg){
-			throwError(&callExpr,msg);
+		v = createCast(v,pt->getElementType());
+		if(v == NULL){
+			throwError(&callExpr);
 		}
 		builder.CreateStore(v,vars[i]);
 	}
@@ -107,10 +96,9 @@ void ExprStmt::codeGen(AstContext &astContext){
 
 void IfElseStmt::codeGen(AstContext &astContext){
 	Value *cond = condExpr.codeGen(astContext);
-	try{
-		cond = createCast(cond,builder.getInt1Ty());
-	}catch(string msg){
-		throwError(&condExpr,msg);
+	cond = createCast(cond,builder.getInt1Ty());
+	if(cond == NULL){
+		throwError(&condExpr);
 	}
 	Function *func = astContext.currentFunc->llvmFunction;
 	BasicBlock *thenBB = BasicBlock::Create(context,"then",func);
@@ -146,10 +134,9 @@ void ForStmt::codeGen(AstContext &astContext){
 	
 	builder.SetInsertPoint(forHeadBB);
 	Value *cond = condExpr.codeGen(headContext);
-	try{
-		cond = createCast(cond,builder.getInt1Ty());
-	}catch(string msg){
-		throwError(&condExpr,msg);
+	cond = createCast(cond,builder.getInt1Ty());
+	if(cond == NULL){
+		throwError(&condExpr);
 	}
 	builder.CreateCondBr(cond,forBodyBB,outBB);
 	
@@ -176,40 +163,43 @@ void ReturnStmt::codeGen(AstContext &astContext){
 	MyFunction *currentFunc = astContext.currentFunc;
 	if(currentFunc->style == 1){
 		vector<Type*> &returnTypes = currentFunc->returnTypes;
+		if(exprList.size() < returnTypes.size()){
+			errorMsg = "too few values to return in function '"+currentFunc->name+"'";
+			throwError(this);
+		}else if(exprList.size() > returnTypes.size()){
+			errorMsg = "too many values to return in function '"+currentFunc->name+"'";
+			throwError(this);
+		}
 		
 		vector<Value*> exprListValues;
 		for(unsigned i=0; i < exprList.size(); i++){
 			Expression *expr = exprList[i];
 			exprListValues.push_back(expr->codeGen(astContext));
 		}
-		if(exprListValues.size() < returnTypes.size()){
-			throwError(this,"too few values to return in function '"+currentFunc->name+"'");
-		}else if(exprListValues.size() > returnTypes.size()){
-			cout<<"Warning: too many values to return in function '"<<currentFunc->name<<"'"<<endl;
-		}
 		if(returnTypes.size() == 0){
 			builder.CreateRetVoid();
 		}else if(returnTypes.size() == 1){
-			try{
-				builder.CreateRet(createCast(exprListValues[0],returnTypes[0]));
-			}catch(string msg){
-				throwError(exprList[0],msg);
+			Value *v = createCast(exprListValues[0],returnTypes[0]);
+			if(v == NULL){
+				throwError(exprList[0]);
 			}
+			builder.CreateRet(v);
 		}else{
 			Value *alloc = builder.CreateAlloca(currentFunc->returnType);
 			for(unsigned i=0; i < returnTypes.size(); i++){
 				Value *element = builder.CreateStructGEP(alloc,i);
-				try{
-					builder.CreateStore(createCast(exprListValues[i],returnTypes[i]),element);
-				}catch(string msg){
-					throwError(exprList[i],msg);
+				Value *v = createCast(exprListValues[i],returnTypes[i]);
+				if(v == NULL){
+					throwError(exprList[i]);
 				}
+				builder.CreateStore(v,element);
 			}
 			builder.CreateRet(builder.CreateLoad(alloc));
 		}
 	}else{
 		if(exprList.size() > 0){
-			cout<<"Warning: needn't declare any expression behind 'return' in style 2 function"<<endl;
+			errorMsg = "needn't declare any expression behind 'return' in style 2 function";
+			throwError(this);
 		}
 		if(currentFunc->isReturnVoid){
 			builder.CreateRetVoid();
@@ -233,7 +223,8 @@ void ReturnStmt::codeGen(AstContext &astContext){
 
 void BreakStmt::codeGen(AstContext &astContext){
 	if(astContext.breakOutBB == NULL){
-		throwError(this,"break statement not within for");
+		errorMsg = "break statement not within for";
+		throwError(this);
 	}
 	builder.CreateBr(astContext.breakOutBB);
 	BasicBlock *anonyBB = BasicBlock::Create(context,"after_break",astContext.currentFunc->llvmFunction);
@@ -242,7 +233,8 @@ void BreakStmt::codeGen(AstContext &astContext){
 
 void ContinueStmt::codeGen(AstContext &astContext){
 	if(astContext.continueBB == NULL){
-		throwError(this,"continue statement not within for");
+		errorMsg = "continue statement not within for";
+		throwError(this);
 	}
 	builder.CreateBr(astContext.continueBB);
 	BasicBlock *anonyBB = BasicBlock::Create(context,"after_continue",astContext.currentFunc->llvmFunction);

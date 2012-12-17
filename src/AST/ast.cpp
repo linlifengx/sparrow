@@ -1,9 +1,13 @@
 #include "ast.hpp"
 #include "parser.hpp"
 
-void throwError(Node *node,string msg){
-	cout<<node->firstLine<<":"<<node->firstColumn<<": error: "<<msg<<endl;
+void throwError(Node *node){
+	cout<<node->firstLine<<":"<<node->firstColumn<<": error: "<<errorMsg<<endl;
 	exit(1);
+}
+
+void throwWarning(Node *node,string msg){
+	cout<<node->firstLine<<":"<<node->firstColumn<<": warning: "<<msg<<endl;
 }
 
 string getOperatorName(int op){
@@ -55,7 +59,7 @@ string getTypeName(Type *type){
 	}
 }
 
-Value* createCast(Value *value,Type *type) throw(string){
+Value* createCast(Value *value,Type *type){
 	Type *valType = value->getType();
 	if(valType == type){
 		return value;
@@ -70,13 +74,13 @@ Value* createCast(Value *value,Type *type) throw(string){
 	}else if(type->isIntegerTy(1) && valType->isIntegerTy(1)){
 		return value;
 	}else{
-		string fromType = getTypeName(valType);
-		string toType = getTypeName(type);
-		throw string("no viable conversion from '"+fromType+"' to '"+toType+"'");
+		errorMsg = "no viable conversion from '"+getTypeName(valType)
+					  +"' to '"+getTypeName(type)+"'";
+		return NULL;
 	}
 }
 
-Constant* getInitial(Type *type) throw(string){
+Constant* getInitial(Type *type){
 	if(type->isDoubleTy()){
 		return ConstantFP::get(builder.getDoubleTy(),0);
 	}else if(type->isIntegerTy(64)){
@@ -84,20 +88,21 @@ Constant* getInitial(Type *type) throw(string){
 	}else if(type->isIntegerTy(1)){
 		return builder.getInt1(false);
 	}else{
-		throw string("no initializer for '"+getTypeName(type)+"'");
+		errorMsg = "no initializer for '"+getTypeName(type)+"'";
+		return NULL;
 	}
 }
 
-Type* AstContext::getType(string name) throw(string){
+Type* AstContext::getType(string name){
 	Type *type = typeTable[name];
 	if(type == NULL && parent != NULL){
 		type = parent->getType(name);
 	}
 	if(type == NULL){
 		if(name == "void"){
-			throw string("variable has incomplete type 'void'");
+			errorMsg = "variable has incomplete type 'void'";
 		}else{
-			throw string("undeclared type '"+name+"'");
+			errorMsg = "undeclared type '"+name+"'";
 		}
 	}
 	return type;
@@ -109,41 +114,47 @@ MyFunction* AstContext::getFunction(string name) throw(string){
 		return parent->getFunction(name);
 	}
 	if(function == NULL){
-		throw string("undeclared function '"+name+"'");
+		errorMsg = "undeclared function '"+name+"'";
 	}
 	return function;
 }
 
-Value* AstContext::getVar(string name) throw(string){
+Value* AstContext::getVar(string name){
 	Value *var = varTable[name];
 	if(var == NULL && parent != NULL){
 		return parent->getVar(name);
 	}
 	if(var == NULL){
-		throw string("undeclared identifier '"+name+"'");
+		errorMsg = "undeclared identifier '"+name+"'";
 	}
 	return var;
 }
 
-void AstContext::addFunction(string name, MyFunction *function) throw(string){
+bool AstContext::addFunction(string name, MyFunction *function){
 	if(functionTable[name] != NULL){
-		throw string("redefine function named '"+name+"'");
+		errorMsg = "redefine function named '"+name+"'";
+		return false;
 	}
 	functionTable[name] = function;
+	return true;
 }
 
-void AstContext::addVar(string name, Value *value) throw(string){
+bool AstContext::addVar(string name, Value *value){
 	if(varTable[name] != NULL){
-		throw string("redefine variable named '"+name+"'");
+		errorMsg = "redefine variable named '"+name+"'";
+		return false;
 	}
 	varTable[name] = value;
+	return true;
 }
 
-void AstContext::addType(string name, Type *type) throw(string){
+bool AstContext::addType(string name, Type *type){
 	if(typeTable[name] != NULL){
-		throw string("redefine type named '"+name+"'");
+		errorMsg =  "redefine type named '"+name+"'";
+		return false;
 	}
 	typeTable[name] = type;
+	return true;
 }
 
 void Program::codeGen(AstContext &astContext){
@@ -154,7 +165,7 @@ void Program::codeGen(AstContext &astContext){
 	
 	//create init func
 	FunctionType *initFuncType = FunctionType::get(builder.getVoidTy(),false);
-	Function *initFunc = Function::Create(initFuncType,Function::ExternalLinkage,"",&module);
+	Function *initFunc = Function::Create(initFuncType,Function::ExternalLinkage,"main",&module);
 	builder.SetInsertPoint(BasicBlock::Create(context,"entry",initFunc));
 	for(unsigned i=0;i<stmts.size();i++){
 		GlobalStatement *stmt = stmts[i];
@@ -162,13 +173,14 @@ void Program::codeGen(AstContext &astContext){
 			stmt->globalCodeGen(astContext);
 		}
 	}
-	try{
-		MyFunction *mainFunc = astContext.getFunction("main");
+
+	MyFunction *mainFunc = astContext.getFunction("main");
+	if(mainFunc == NULL){
+		cout<<errorMsg<<endl;
+	}else{
 		builder.CreateCall(mainFunc->llvmFunction);
-	}catch(string msg){
-		cout<<msg<<endl;
+		builder.CreateRetVoid();
 	}
-	builder.CreateRetVoid();
 
 	startFunc = initFunc;
 

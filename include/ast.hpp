@@ -62,10 +62,12 @@ extern LLVMContext &context;
 extern IRBuilder<> builder;
 extern Module module;
 extern Function *startFunc;
+extern string errorMsg;
 
-extern Value* createCast(Value *value,Type *type) throw(string);
-extern Constant* getInitial(Type *type) throw(string);
-extern void throwError(Node *node,string msg);
+extern Value* createCast(Value *value,Type *type);
+extern Constant* getInitial(Type *type);
+extern void throwError(Node *node);
+extern void throwWarning(Node *node,string msg);
 extern string getOperatorName(int op);
 extern string getTypeName(Type *type);
 
@@ -110,12 +112,12 @@ public:
 		}
 	}
 
-	Type* getType(string name) throw(string);
-	MyFunction* getFunction(string name) throw(string);
-	Value* getVar(string name) throw(string);
-	void addFunction(string name,MyFunction *MyFunction) throw(string);
-	void addVar(string name,Value *var) throw(string);
-	void addType(string name,Type *type) throw(string);
+	Type* getType(string name);
+	MyFunction* getFunction(string name);
+	Value* getVar(string name);
+	bool addFunction(string name,MyFunction *MyFunction);
+	bool addVar(string name,Value *var);
+	bool addType(string name,Type *type);
 };
 
 class Node{

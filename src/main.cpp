@@ -28,6 +28,7 @@ LLVMContext &context = getGlobalContext();
 Module module("test",context);
 IRBuilder<> builder(context);
 Function *startFunc = NULL;
+string errorMsg;
 
 int main(int argc,char **argv){
 	bool runJit = false;
@@ -126,7 +127,7 @@ int main(int argc,char **argv){
 	if(irOutput){
 		string opFileName;
 		if(outputFileName == NULL){
-			opFileName = string(inputFileName) + ".ir";
+			opFileName = string(basename(inputFileName)) + ".ir";
 		}else{
 			opFileName = outputFileName;
 		}
@@ -155,9 +156,9 @@ int main(int argc,char **argv){
 		string opFileName;
 		if(outputFileName == NULL){
 			if(asmOutput){
-				opFileName = string(inputFileName) + ".s";
+				opFileName = string(basename(inputFileName)) + ".s";
 			}else{
-				opFileName = string(inputFileName) + ".o";
+				opFileName = string(basename(inputFileName)) + ".o";
 			}
 		}else{
 			opFileName = outputFileName;
@@ -200,29 +201,49 @@ void createSystemFunctions(AstContext &astContext){
 	
 	vector<Type*> emptyTypes;
 	
-	//create printflong func
+	//create print long func
 	vector<Type*> printfLongFuncArgTypes;
 	printfLongFuncArgTypes.push_back(builder.getInt64Ty());
 	ArrayRef<Type*> printfLongFuncArgTypesRef(printfLongFuncArgTypes);
 	FunctionType *printfLongFuncType = FunctionType::get(builder.getVoidTy(),printfLongFuncArgTypesRef,false);
-	Function *printfLongFunc = Function::Create(printfLongFuncType,Function::ExternalLinkage,"printfL",&module);
+	Function *printfLongFunc = Function::Create(printfLongFuncType,Function::ExternalLinkage,"printL",&module);
 	builder.SetInsertPoint(BasicBlock::Create(context,"entry",printfLongFunc));
 	Value *longFormat = builder.CreateGlobalStringPtr("%ld");
 	builder.CreateCall2(printfFunc,longFormat,printfLongFunc->arg_begin());
 	builder.CreateRetVoid();
-	MyFunction *printfL = new MyFunction("printfL",printfLongFunc,emptyTypes,printfLongFuncArgTypes);
+	MyFunction *printfL = new MyFunction("printL",printfLongFunc,emptyTypes,printfLongFuncArgTypes);
 	
-	//create printfdouble func
+	//create print double func
 	vector<Type*> printfDoubleFuncArgTypes;
 	printfDoubleFuncArgTypes.push_back(builder.getDoubleTy());
 	ArrayRef<Type*> printfDoubleFuncArgTypesRef(printfDoubleFuncArgTypes);
 	FunctionType *printfDoubleFuncType = FunctionType::get(builder.getVoidTy(),printfDoubleFuncArgTypesRef,false);
-	Function *printfDoubleFunc = Function::Create(printfDoubleFuncType,Function::ExternalLinkage,"printfD",&module);
+	Function *printfDoubleFunc = Function::Create(printfDoubleFuncType,Function::ExternalLinkage,"printD",&module);
 	builder.SetInsertPoint(BasicBlock::Create(context,"entry",printfDoubleFunc));
 	Value *doubleFormat = builder.CreateGlobalStringPtr("%lf");
 	builder.CreateCall2(printfFunc,doubleFormat,printfDoubleFunc->arg_begin());
 	builder.CreateRetVoid();
-	MyFunction *printfD = new MyFunction("printfD",printfDoubleFunc,emptyTypes,printfDoubleFuncArgTypes);
+	MyFunction *printfD = new MyFunction("printD",printfDoubleFunc,emptyTypes,printfDoubleFuncArgTypes);
+	
+	//create print bool func
+	vector<Type*> printfBoolFuncArgTypes;
+	printfBoolFuncArgTypes.push_back(builder.getInt1Ty());
+	ArrayRef<Type*> printfBoolFuncArgTypesRef(printfBoolFuncArgTypes);
+	FunctionType *printfBoolFuncType = FunctionType::get(builder.getVoidTy(),printfBoolFuncArgTypesRef,false);
+	Function *printfBoolFunc = Function::Create(printfBoolFuncType,Function::ExternalLinkage,"printB",&module);
+	builder.SetInsertPoint(BasicBlock::Create(context,"entry",printfBoolFunc));
+	BasicBlock *trueBB = BasicBlock::Create(context,"true",printfBoolFunc);
+	BasicBlock *falseBB = BasicBlock::Create(context,"false",printfBoolFunc);
+	builder.CreateCondBr(printfBoolFunc->arg_begin(),trueBB,falseBB);
+	builder.SetInsertPoint(trueBB);
+	Value *trueStr = builder.CreateGlobalStringPtr("true");
+	builder.CreateCall(printfFunc,trueStr);
+	builder.CreateRetVoid();
+	builder.SetInsertPoint(falseBB);
+	Value *falseStr = builder.CreateGlobalStringPtr("false");
+	builder.CreateCall(printfFunc,falseStr);
+	builder.CreateRetVoid();
+	MyFunction *printfB = new MyFunction("printB",printfBoolFunc,emptyTypes,printfBoolFuncArgTypes);
 	
 	//create println func
 	FunctionType *printlnFuncType = FunctionType::get(builder.getVoidTy(),false);
@@ -234,7 +255,8 @@ void createSystemFunctions(AstContext &astContext){
 	MyFunction *println = new MyFunction("println",printlnFunc,emptyTypes,emptyTypes);
 	
 	//astContext.addFunction("printf",cast<Function>(printfFunc));
-	astContext.addFunction("printfL",printfL);
-	astContext.addFunction("printfD",printfD);
+	astContext.addFunction("printL",printfL);
+	astContext.addFunction("printD",printfD);
+	astContext.addFunction("printB",printfB);
 	astContext.addFunction("println",println);
 }
