@@ -1,19 +1,15 @@
-Sparrow
-============================
+#Sparrow
 Sparrow is a C-style toy language and implemented with [llvm](http://llvm.rog).
 
-Requirement
------------------------
+##Requirement
 flex 2.5+  
 bison 2.4+  
 llvm 3.2+
 
-Compiling
------------------------
+##Compiling
 	make all
 
-Run
------------------------
+##Run
 	./sprc <programfile> [options]
 'sprc' will run \<programfile> just in time with no option.
 
