@@ -15,9 +15,9 @@ Compiling
 Run
 -----------------------
 	./sprc <programfile> [options]
-'sprc' will run \<programfile> just in time with no option.  
-options:
+'sprc' will run \<programfile> just in time with no option.
 
+	options:
 	-S           Compile to a LLVM IR file
 	-s           Compile to a assembly file
 	-c           Compile to a object file
