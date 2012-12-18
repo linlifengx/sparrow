@@ -18,7 +18,7 @@ Run
 'sprc' will run \<programfile> just in time with no option.  
 options:
 
-	-S	    	Compile to a LLVM IR file
-	-s		Compile to a assembly file
-	-c		Compile to a object file
-	-o <file>		Place the output into <file>  
+	-S           Compile to a LLVM IR file
+	-s           Compile to a assembly file
+	-c           Compile to a object file
+	-o <file>    Place the output into <file>  
