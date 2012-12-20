@@ -17,8 +17,14 @@ Value* BinaryExpr::codeGen(AstContext &astContext){
 		&& (lv->getType()->isDoubleTy() || lv->getType()->isIntegerTy(64)) ){
 		if(lv->getType()->isDoubleTy()){
 			rv = createCast(rv,lv->getType());
+			if(rv == NULL){
+				throwError(&rexpr);
+			} 
 		}else{
 			lv = createCast(lv,rv->getType());
+			if(lv == NULL){
+				throwError(&lexpr);
+			}
 		}
 		if(lv->getType()->isDoubleTy()){
 			switch(op){

@@ -77,9 +77,10 @@ void FuncDecl::globalCodeGen(AstContext &astContext){
 		builder.CreateRet(retVal);
 	}else{
 		Value *alloc = builder.CreateAlloca(myFunction->returnType);
-		for(i = 0; i < argTypes.size(); i++){
+		vector<Type*> returnTypes = myFunction->returnTypes;
+		for(i = 0; i < returnTypes.size(); i++){
 			Value *element = builder.CreateStructGEP(alloc,i);
-			Value *elemVal = getInitial(argTypes[i]);
+			Value *elemVal = getInitial(returnTypes[i]);
 			if(elemVal == NULL){
 				throwError(this);
 			}

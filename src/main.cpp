@@ -127,7 +127,11 @@ int main(int argc,char **argv){
 	if(irOutput){
 		string opFileName;
 		if(outputFileName == NULL){
-			opFileName = string(basename(inputFileName)) + ".ir";
+			if(inputFileName == NULL){
+				opFileName = "temp.ir";
+			}else{
+				opFileName = string(basename(inputFileName)) + ".ir";
+			}
 		}else{
 			opFileName = outputFileName;
 		}
@@ -155,10 +159,18 @@ int main(int argc,char **argv){
 		
 		string opFileName;
 		if(outputFileName == NULL){
-			if(asmOutput){
-				opFileName = string(basename(inputFileName)) + ".s";
+			if(inputFileName == NULL){
+				if(asmOutput){
+					opFileName = "temp.s";
+				}else{
+					opFileName = "temp.o";
+				}
 			}else{
-				opFileName = string(basename(inputFileName)) + ".o";
+				if(asmOutput){
+					opFileName = string(basename(inputFileName)) + ".s";
+				}else{
+					opFileName = string(basename(inputFileName)) + ".o";
+				}
 			}
 		}else{
 			opFileName = outputFileName;
