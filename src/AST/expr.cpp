@@ -4,7 +4,7 @@
 Value* BinaryExpr::codeGen(AstContext &astContext){
 	Value *lv = lexpr.codeGen(astContext);
 	Value *rv = rexpr.codeGen(astContext);
-	if(lv->getType()->isIntegerTy(1) && lv->getType()->isIntegerTy(1)){
+	if(lv->getType()->isIntegerTy(1) && rv->getType()->isIntegerTy(1)){
 		switch(op){
 		case EQUAL:
 			return builder.CreateICmpEQ(lv,rv);
@@ -14,7 +14,7 @@ Value* BinaryExpr::codeGen(AstContext &astContext){
 			;
 		}
 	}else if( (lv->getType()->isDoubleTy() || lv->getType()->isIntegerTy(64))
-		&& (lv->getType()->isDoubleTy() || lv->getType()->isIntegerTy(64)) ){
+		&& (rv->getType()->isDoubleTy() || rv->getType()->isIntegerTy(64)) ){
 		if(lv->getType()->isDoubleTy()){
 			rv = createCast(rv,lv->getType());
 			if(rv == NULL){
