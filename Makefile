@@ -1,11 +1,40 @@
-sources=src/main.cpp src/AST/ast.cpp src/AST/stmt.cpp src/AST/globalstmt.cpp \
-		src/AST/expr.cpp temp/parser.cpp temp/token.cpp
-headers=include/ast.hpp temp/parser.hpp
+sources=src/main.cpp \
+	temp/parser.cpp \
+	temp/token.cpp \
+	src/ast/expression/binarylogicexpr.cpp \
+	src/ast/expression/binaryopexpr.cpp \
+	src/ast/expression/funcinvoke.cpp \
+	src/ast/expression/identexpr.cpp \
+	src/ast/expression/simpleexpr.cpp \
+	src/ast/node/program.cpp \
+	src/ast/statement/vardef.cpp \
+	src/ast/statement/classdef.cpp \
+	src/ast/statement/constructor.cpp \
+	src/ast/statement/forstmt.cpp \
+	src/ast/statement/funcdef.cpp \
+	src/ast/statement/ifstmt.cpp \
+	src/ast/statement/returnstmt.cpp \
+	src/ast/statement/simplestmt.cpp \
+	src/ast/statement/superinit.cpp \
+	src/ast/statement/varassi.cpp \
+	src/ast/support/avalue.cpp \
+	src/ast/support/classinfo.cpp \
+	src/ast/support/context.cpp \
+	src/ast/support/support.cpp \
 
-all:parser lex bin
+headers=include/expression.h \
+	include/node.h \
+	include/statement.h \
+	include/support.h \
+	temp/parser.hpp
+
+all:parser lex compile
 
 clean:
 	rm -rf temp sprc
+
+compile_syslib:src/syslib/sysapi.c
+	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99
 
 parser:src/parser/parser.y
 	mkdir temp -p
@@ -15,5 +44,6 @@ lex:src/parser/token.l
 	mkdir temp -p
 	flex -o temp/token.cpp $<
 
-bin:$(sources) $(headers)
-	g++ -o sprc $(sources) -Iinclude -Itemp `llvm-config --cxxflags --ldflags --libs core jit native all-targets asmparser`
+compile:$(sources) $(headers)
+	g++ -o sprc $(sources) -Iinclude -Itemp `llvm-config --cxxflags \
+	--ldflags --libs core native all-targets asmparser`

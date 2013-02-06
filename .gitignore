@@ -1,10 +1,8 @@
 #folder
 /temp/
-/test/
 
 #file
-*.pro
-*.pro.user
 ~*
 *.tmp
 sprc
+test.sp

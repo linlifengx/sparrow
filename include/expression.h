@@ -8,133 +8,135 @@ class AValue;
 
 using namespace std;
 
-
-class Expression : public Node{
+class Expression: public Node {
 public:
-	virtual AValue codeGen(AstContext *astContext)=0;
+	virtual AValue codeGen(AstContext &astContext)=0;
+	virtual ~Expression(){};
 };
 
-class BinaryOpExpr : public Expression{
+class BinaryOpExpr: public Expression {
 public:
 	Expression *leftExpr;
 	Expression *rightExpr;
 	int op;
-	
-	BinaryOpExpr(Expression *leftExpr,int op,Expression *rightExpr){
+
+	BinaryOpExpr(Expression *leftExpr, int op, Expression *rightExpr) {
 		this->leftExpr = leftExpr;
 		this->op = op;
 		this->rightExpr = rightExpr;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
 };
 
-class PrefixOpExpr : public Expression{
+class BinaryLogicExpr: public Expression {
+public:
+	Expression *leftExpr;
+	Expression *rightExpr;
+	int op;
+
+	BinaryLogicExpr(Expression *leftExpr, int op, Expression *rightExpr) {
+		this->leftExpr = leftExpr;
+		this->op = op;
+		this->rightExpr = rightExpr;
+	}
+
+	AValue codeGen(AstContext &astContext);
+};
+
+class PrefixOpExpr: public Expression {
 public:
 	int op;
 	Expression *expr;
-	
-	PrefixOpExpr(int op,Expression *expr){
+
+	PrefixOpExpr(int op, Expression *expr) {
 		this->op = op;
 		this->expr = expr;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
 };
 
-class IdentExpr : public Expression{
+class IdentExpr: public Expression {
 public:
-	string *ident;
-	
-	IdentExpr(string *ident){
+	Expression *expr;
+	string ident;
+
+	IdentExpr(Expression *expr, string &ident) {
+		this->expr = expr;
 		this->ident = ident;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
+	AValue lvalueGen(AstContext &astContext);
 };
 
-class FuncInvoke : public Expression{
+class FuncInvoke: public Expression {
 public:
-	string *funcName;
-	vector<Expression*> *exprList;
-	
-	FuncInvoke(string *funcName,vector<Expression*> *exprList){
+	Expression *expr;
+	string funcName;
+	vector<Expression*> exprList;
+	bool isConstructor;
+
+	FuncInvoke(Expression *expr, string &funcName,
+			vector<Expression*> &exprList, bool isConstructor = false) {
 		this->funcName = funcName;
 		this->exprList = exprList;
-	}
-	
-	AValue codeGen(AstContext *astContext);
-	vector<AValue> multiCodeGen(AstContext *astContext);
-};
-
-class MethodInvoke : public Expression{
-public:
-	Expression *expr;
-	FuncInvoke *funcInvoke;
-	
-	MethodInvoke(Expression *expr,FuncInvoke *funcInvoke){
 		this->expr = expr;
-		this->funcInvoke = funcInvoke;
+		this->isConstructor = isConstructor;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	vector<AValue> multiCodeGen(AstContext &astContext);
+	AValue codeGen(AstContext &astContext);
+
 };
 
-class Long : public Expression{
+class Long: public Expression {
 public:
-	string *valStr;
-	
-	Long(string *valStr){
-		this->valStr = valStr;
-	}
-	
-	AValue codeGen(AstContext *astContext);
-};
+	long long value;
 
-class Double : public Expression{
-public:
-	string *valStr;
-	
-	Double(string *valStr){
-		this->valStr = valStr;
-	}
-	
-	AValue codeGen(AstContext *astContext);
-};
-
-class Bool : public Expression{
-public:
-	bool value;
-	
-	Bool(bool value){
+	Long(long long value) {
 		this->value = value;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
 };
 
-class NewObjExpr : public Expression{
+class Double: public Expression {
 public:
-	FuncInvoke *funcInvoke;
-	
-	NewObjExpr(FuncInvoke *funcInvoke){
-		this->funcInvoke = funcInvoke;
+	double value;
+
+	Double(double value) {
+		this->value = value;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
 };
 
-class ObjectField : public Expression{
+class Bool: public Expression {
 public:
-	Expression *expr;
-	string *fieldName;
-	
-	ObjectField(Expression *expr,string *fieldName){
-		this->expr = expr;
-		this->fieldName = fieldName;
+	bool value;
+
+	Bool(bool value) {
+		this->value = value;
 	}
-	
-	AValue codeGen(AstContext *astContext);
+
+	AValue codeGen(AstContext &astContext);
+};
+
+class Nil: public Expression {
+public:
+	AValue codeGen(AstContext &astContext);
+};
+
+class ThisExpr: public Expression {
+public:
+	AValue codeGen(AstContext &astContext);
+};
+
+class SuperExpr: public Expression {
+public:
+	AValue codeGen(AstContext &astContext);
 };
 
 #endif

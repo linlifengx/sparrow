@@ -1,0 +1,44 @@
+┌ └ ┐ ┘ ─ │ ├ ┤ ┬ ┴ ┼
+┌─┬─┬─┬─┐ ├─┼─┼─┼─┤ └─┴─┴─┴─┘
+
+class info layout
+32 bit width
+┌──────────────────────┐
+│name_ptr              │
+│super_info_ptr        │
+│field_name_table_ptr  │
+│method_name_table_ptr │
+│method_table_ptr      │
+│field_count           │
+│method_count          │
+└──────────────────────┘
+
+field name table layout
+32 bit width
+┌─────────┐
+│name_ptr │
+│......   │
+└─────────┘
+
+method name table layout
+32 bit width
+┌─────────┐
+│name_ptr │
+│......   │
+└─────────┘
+
+method table layout
+32 bit width
+┌───────────┐
+│method_ptr │
+│......     │
+└───────────┘
+
+object layout
+64 bit width
+┌───────────────┐
+│class_info_ptr │
+│super          │
+│value          │
+│......         │
+└───────────────┘

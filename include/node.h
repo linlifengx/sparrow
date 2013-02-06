@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <stddef.h>
+#include <string>
+#include <iostream>
 
 class ClassDef;
 class VarDef;
@@ -13,7 +15,7 @@ class Expression;
 
 using namespace std;
 
-class Node{
+class Node {
 public:
 	int firstLine;
 	int firstColumn;
@@ -21,44 +23,44 @@ public:
 	int lastColumn;
 };
 
-class Program : public Node{
+class Program: public Node {
 public:
 	vector<ClassDef*> classDefs;
 	vector<VarDef*> varDefs;
 	vector<FuncDef*> funcDefs;
-	
-	void addClass(ClassDef *classDef){
+
+	void addClassDef(ClassDef *classDef) {
 		classDefs.push_back(classDef);
 	}
-	
-	void addVar(VarDef *varDef){
+
+	void addVarDef(VarDef *varDef) {
 		varDefs.push_back(varDef);
 	}
-	
-	void addFunction(FuncDef *funcDef){
+
+	void addFuncDef(FuncDef *funcDef) {
 		funcDefs.push_back(funcDef);
 	}
-	
-	void codeGen(AstContext *astContext);
+
+	void codeGen(AstContext &astContext);
 };
 
-class VarInit : public Node{
+class VarInit: public Node {
 public:
-	string *varName;
+	string varName;
 	Expression *expr;
-	
-	VarInit(string *varName,Expression *expr=NULL){
+
+	VarInit(string &varName, Expression *expr = NULL) {
 		this->varName = varName;
 		this->expr = expr;
 	}
 };
 
-class SimpleVarDecl : public Node{
+class SimpleVarDecl: public Node {
 public:
-	string *typeName;
-	string *varName;
-	
-	SimpleVarDecl(string *typeName,string *varName){
+	string typeName;
+	string varName;
+
+	SimpleVarDecl(string &typeName, string &varName) {
 		this->typeName = typeName;
 		this->varName = varName;
 	}
