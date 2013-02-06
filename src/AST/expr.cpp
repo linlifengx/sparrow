@@ -1,5 +1,5 @@
 #include "ast.hpp"
-#include "parser.hpp"
+//#include "parser.hpp"
 
 Value* BinaryExpr::codeGen(AstContext &astContext){
 	Value *lv = lexpr.codeGen(astContext);
@@ -141,11 +141,15 @@ Value* IdentExpr::codeGen(AstContext &astContext){
 }
 
 vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
-	MyFunction *myfunc = astContext.getFunction(funcName);
-	if(myfunc == NULL){
+	AstFunction *astFunc = function;
+	if(astFunc == NULL){
+		astFunc = astContext.getFunction(funcName);
+	}
+	if(astFunc == NULL){
 		throwError(this);
 	}
-	vector<Type*> &argTypes = myfunc->argTypes;
+
+	vector<Type*> &argTypes = astFunc->argTypes;
 	vector<Value*> exprListValues;
 	for(unsigned i=0; i < exprList.size(); i++){
 		Expression *expr = exprList[i];
@@ -160,7 +164,7 @@ vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
 	
 	Value *callResult = NULL;
 	if(argTypes.size() == 0){
-		callResult = builder.CreateCall(myfunc->llvmFunction);
+		callResult = builder.CreateCall(astFunc->llvmFunction);
 	}else{
 		vector<Value*> argValues;
 		for(unsigned i=0; i < argTypes.size(); i++){
@@ -171,17 +175,17 @@ vector<Value*> CallExpr::multiCodeGen(AstContext &astContext){
 			argValues.push_back(v);
 		}
 		ArrayRef<Value*> args(argValues);
-		callResult = builder.CreateCall(myfunc->llvmFunction,args);
+		callResult = builder.CreateCall(astFunc->llvmFunction,args);
 	}
 	
 	vector<Value*> resultValues;
-	vector<Type*> &resultTypes = myfunc->returnTypes;
-	if(myfunc->isReturnVoid){
+	vector<Type*> &resultTypes = astFunc->returnTypes;
+	if(astFunc->isReturnVoid){
 		resultValues.push_back(callResult);
-	}else if(myfunc->isReturnSingle){
+	}else if(astFunc->isReturnSingle){
 		resultValues.push_back(callResult);
 	}else{
-		Value *alloc = builder.CreateAlloca(myfunc->returnType);
+		Value *alloc = builder.CreateAlloca(astFunc->returnType);
 		builder.CreateStore(callResult,alloc);
 		for(unsigned i=0; i < resultTypes.size(); i++){
 			Value *element = builder.CreateStructGEP(alloc,i);

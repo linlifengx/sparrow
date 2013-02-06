@@ -5,7 +5,7 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <typeinfo>
+#include <set>
 
 #include <llvm/Value.h>
 #include <llvm/Module.h>
@@ -23,19 +23,19 @@
 using namespace std;
 using namespace llvm;
 
-class MyFunction;
+class AstFunction;
+class AstType;
+class AstValue;
 class AstContext;
-class MyFunction;
 class Node;
 class Program;
 class SimpleVarDecl;
 class VarInit;
 
-class GlobalStatement;
+class Statement;
+class FuncDeclStmt;
 class FuncDecl;
 class FuncDecl2;
-
-class Statement;
 class VarDecl;
 class VarAssi;
 class MultiVarAssi;
@@ -58,6 +58,14 @@ class Long;
 class Double;
 class Bool;
 
+class ClassDecl;
+class Constructor;
+class NewObject;
+class ObjectField;
+class ObjectMethod;
+
+extern int AND,OR,EQUAL,NEQUAL,LE,GE;
+
 extern LLVMContext &context;
 extern IRBuilder<> builder;
 extern Module module;
@@ -71,54 +79,138 @@ extern void throwWarning(Node *node,string msg);
 extern string getOperatorName(int op);
 extern string getTypeName(Type *type);
 
-class MyFunction{
+extern Type *ptrType;
+extern Type *ptrptrType;
+extern Type *int64Type;
+extern Type *doubleType;
+extern Type *boolType;
+extern Type *voidType;
+
+extern Constant *int64_0;
+extern Constant *double_0;
+extern Constant *bool_true;
+extern Constant *bool_false;
+extern Constant *ptr_null;
+
+extern Function *sysObjectField;
+extern Function *sysObjectAlloca;
+extern Function *sysObjectMethod;
+
+extern vector<AstFunction*> defaultContructors;
+
+class AstFunction{
 public:
 	string name;
 	Function *llvmFunction;
 	Type *returnType;
 	bool isReturnSingle;
 	bool isReturnVoid;
-	vector<Type*> returnTypes;
-	vector<Type*> argTypes;
+	vector<AstType*> returnTypes;
+	vector<AstType*> argTypes;
 	int style;
-	vector<Value*> returnVars;
-	MyFunction(string name,Function *llvmFunction,vector<Type*> &returnTypes,vector<Type*> &argTypes,int style=1)
-		:name(name),llvmFunction(llvmFunction),returnTypes(returnTypes),argTypes(argTypes),style(style){
+	vector<AstValue*> returnVars;
+	AstType *dominateType;
+	AstFunction(string name,Function *llvmFunction,vector<AstType*> &returnTypes,
+	vector<AstType*> &argTypes,AstType *dominateType=NULL,int style=1)
+		:name(name),llvmFunction(llvmFunction),returnTypes(returnTypes),
+		argTypes(argTypes),style(style),dominateType(dominateType){
 		isReturnSingle = (returnTypes.size() ==  1);
 		isReturnVoid = (returnTypes.size() == 0);
 		returnType = llvmFunction->getReturnType();
 	}
 };
 
+class AstType{
+public:
+	int status; //1 primitive 2 preparing 3 complete
+	ClassDecl *classDecl;
+	
+	string name;
+	AstType *superClass;
+	map<string,AstFunction*> methodTable;
+	map<string,AstType*> fieldTable;
+	Function *initFunc;
+
+	Type *llvmType;
+	GlobalVariable *info;
+	AstType(string name,Type *llvmType = ptrType,ClassDecl *classDecl=NULL)
+		:name(name),llvmType(llvmType),classDecl(classDecl){
+		status = 1;
+		superClass = NULL;
+		initFunc = NULL;
+	}
+	AstValue* getInitialValue();
+	Constant* getInitial();
+	
+	bool addField(string fieldName,AstType *type);
+	bool addMethod(string methodName,AstFunction *method);
+	AstType* getFieldType(string fieldName);
+	AstFunction* getMethod(string methodName);
+	
+	bool isSubOf(AstType *destType);
+	
+	bool isDoubleType(){return llvmType == doubleType;}
+	bool isLongType(){return llvmType == int64Type;}
+	bool isBoolType(){return llvmType == boolType;}
+	bool isObjectType(){return llvmType == ptrType;}
+};
+
+class AstValue{
+public:
+	Value *llvmValue;
+	AstType *type;
+	AstValue(Value *llvmValue,AstType *type)
+		:llvmValue(llvmValue),type(type){}
+	bool castTo(AstType *destType);
+};
+
+class TypeContext{
+	map<string,AstValue*> fieldTable;
+public:
+	AstValue *thisObject;
+	AstValue *superObject;
+	TypeContext(AstValue *thisObject=NULL,AstValue *superObject=NULL)
+		:thisObject(thisObject),superObject(superObject){}
+	AstValue* getField(string name);
+	AstFunction* getMethod(string name);
+};
+
 class AstContext{
+public:
 	AstContext *parent;
 	map<string,Type*> typeTable;
-	map<string,MyFunction*> functionTable;
-	map<string,Value*> varTable;
-public:
-	MyFunction *currentFunc;
+	map<string,AstFunction*> functionTable;
+	map<string,AstValue*> varTable;
+	map<string,AstType*> classTable;
+	AstFunction *currentFunc;
 	BasicBlock *breakOutBB;
 	BasicBlock *continueBB;
+	TypeContext *typeContext;
 
 	AstContext(AstContext *parent=NULL):parent(parent){
 		if(parent != NULL){
 			currentFunc = parent->currentFunc;
 			breakOutBB = parent->breakOutBB;
 			continueBB = parent->continueBB;
+			typeContext = parent->typeContext;
 		}else{
 			currentFunc = NULL;
 			breakOutBB = NULL;
 			continueBB = NULL;
+			typeContext = NULL;
 		}
 	}
 
-	Type* getType(string name);
-	MyFunction* getFunction(string name);
-	Value* getVar(string name);
-	bool addFunction(string name,MyFunction *MyFunction);
-	bool addVar(string name,Value *var);
-	bool addType(string name,Type *type);
+	AstType* getType(string name);
+	AstFunction* getFunction(string name);
+	AstValue* getVar(string name);
+
+	bool addFunction(string name,AstFunction *function);
+	bool addVar(string name,AstValue *var);
+	bool addType(string name,AstType *type);
 };
+
+
 
 class Node{
 public:
@@ -130,8 +222,8 @@ public:
 
 class Program : public Node{
 public:
-	vector<GlobalStatement*> &stmts;
-	Program(vector<GlobalStatement*> &stmts):stmts(stmts){}
+	vector<Statement*> &stmts;
+	Program(vector<Statement*> &stmts):stmts(stmts){}
 	void codeGen(AstContext &astContext);
 };
 
@@ -150,53 +242,63 @@ public:
 		:typeName(typeName),varName(varName){}
 };
 
+enum StmtType{
+	FUNC_DECL,VAR_DECL,CLASS_DECL,INTERFACE_DECL,CONSTRUCTOR,SUPER_CALL,NORMAL
+};
+
 /* Statement declare */
 class Statement : public Node{
 public:
 	virtual void codeGen(AstContext &astContext)=0;
+	virtual StmtType stmtType(){return NORMAL;}
 };
 
-class GlobalStatement : public Statement{
+class FuncDeclStmt : public Statement{
 public:
-	virtual void globalDeclGen(AstContext &astContext)=0;
-	virtual void globalCodeGen(AstContext &astContext)=0;
-	virtual bool isFuncDecl()=0;
-	virtual void codeGen(AstContext &astContext)=0;
+	string &funcName;
+	virtual AstFunction* declGen(AstContext &astContext,AstType *astType=NULL)=0;
+	virtual void codeGen(AstContext &astContext,AstType *astType=NULL)=0;
+	virtual StmtType stmtType(){return FUNC_DECL;}
 };
 
-class FuncDecl : public GlobalStatement{
+class FuncDecl : public FuncDeclStmt{
 public:
 	vector<string*> &retTypeNameList;
-	string &funcName;
 	vector<SimpleVarDecl*> &argDeclList;
 	vector<Statement*> &stmtList;
 	FuncDecl(vector<string*> &retTypeNameList,string &funcName,
 			 vector<SimpleVarDecl*> &argDeclList,vector<Statement*> &stmtList)
 				 :retTypeNameList(retTypeNameList),funcName(funcName),
 				 argDeclList(argDeclList),stmtList(stmtList){}
-	void globalDeclGen(AstContext &astContext);
-	void globalCodeGen(AstContext &astContext);
-	void codeGen(AstContext &astContext){};
-	bool isFuncDecl(){return true;};
+	AstFunction* declGen(AstContext &astContext,AstType *astType=NULL);
+	void codeGen(AstContext &astContext,AstType *astType=NULL);
+	
 };
 
-class FuncDecl2 : public GlobalStatement{
+class FuncDecl2 : public FuncDeclStmt{
 public:
 	vector<SimpleVarDecl*> &retDeclList;
-	string &funcName;
 	vector<SimpleVarDecl*> &argDeclList;
 	vector<Statement*> &stmts;
 	FuncDecl2(vector<SimpleVarDecl*> &retDeclList,string &funcName,
 			 vector<SimpleVarDecl*> &argDeclList,vector<Statement*> &stmts)
 				 :retDeclList(retDeclList),funcName(funcName),
 				 argDeclList(argDeclList),stmts(stmts){}
-	void globalDeclGen(AstContext &astContext);
-	void globalCodeGen(AstContext &astContext);
-	void codeGen(AstContext &astContext){};
-	bool isFuncDecl(){return true;};
+	AstFunction* declGen(AstContext &astContext,AstType *astType=NULL);
+	void codeGen(AstContext &astContext,AstType *astType=NULL);
 };
 
-class VarDecl : public GlobalStatement{
+class Constructor : public FuncDeclStmt{
+public:
+	vector<SimpleVarDecl*> &argDeclList;
+	vector<Statement*> &stmts;
+	Constructor(string &funcName,vector<SimpleVarDecl*> &argDeclList,vector<Statement*> &stmts)
+				 :funcName(funcName),argDeclList(argDeclList),stmts(stmts){}
+	AstFunction* declGen(AstContext &astContext,AstType *astType=NULL);
+	void codeGen(AstContext &astContext,AstType *astType=NULL);
+};
+
+class VarDecl : public Statement{
 public:
 	string &typeName;
 	vector<VarInit*> &varInitList;
@@ -204,9 +306,8 @@ public:
 	VarDecl(string &typeName,vector<VarInit*> &varInitList)
 		:typeName(typeName),varInitList(varInitList){}
 	void codeGen(AstContext &astContext);
-	void globalDeclGen(AstContext &astContext);
 	void globalCodeGen(AstContext &astContext);
-	bool isFuncDecl(){return false;};
+	StmtType stmtType(){return VAR_DECL;}
 };
 
 class VarAssi : public Statement{
@@ -290,7 +391,7 @@ public:
 /* Expression declare */
 class Expression : public Node{
 public:
-	virtual Value* codeGen(AstContext &astContext)=0;
+	virtual AstValue* codeGen(AstContext &astContext)=0;
 };
 
 class BinaryExpr : public Expression{
@@ -300,7 +401,7 @@ public:
 	int op;
 	BinaryExpr(Expression &lexpr,int op,Expression &rexpr)
 		:lexpr(lexpr),rexpr(rexpr),op(op){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class LogicExpr : public Expression{
@@ -310,7 +411,7 @@ public:
 	int op;
 	LogicExpr(Expression &lexpr,int op,Expression &rexpr)
 		:lexpr(lexpr),rexpr(rexpr),op(op){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class PrefixExpr : public Expression{
@@ -318,45 +419,85 @@ public:
 	int op;
 	Expression &expr;
 	PrefixExpr(int op,Expression &expr):op(op),expr(expr){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class IdentExpr : public Expression{
 public:
 	string &ident;
 	IdentExpr(string &ident):ident(ident){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class CallExpr : public Expression{
 public:
 	string &funcName;
 	vector<Expression*> &exprList;
+	AstFunction *function;
 	CallExpr(string &funcName,vector<Expression*> &exprList)
-		:funcName(funcName),exprList(exprList){}
-	Value* codeGen(AstContext &astContext);
-	vector<Value*> multiCodeGen(AstContext &astContext);
+		:funcName(funcName),exprList(exprList){function=NULL;}
+	AstValue* codeGen(AstContext &astContext);
+	vector<AstValue*> multiCodeGen(AstContext &astContext);
 };
 
 class Long : public Expression{
 public:
 	string &valStr;
 	Long(string &valStr):valStr(valStr){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class Double : public Expression{
 public:
 	string &valStr;
 	Double(string &valStr):valStr(valStr){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
 };
 
 class Bool : public Expression{
 public:
 	bool value;
 	Bool(bool value):value(value){}
-	Value* codeGen(AstContext &astContext);
+	AstValue* codeGen(AstContext &astContext);
+};
+
+
+
+class ClassDecl : public Statement{
+public:
+	string &className;
+	string &superName;
+	vector<Statement*> &stmtList;
+	
+	ClassDecl(string &className,string &superName,vector<Statement*> &stmtList):
+		className(className),superName(superName),stmtList(stmtList){}
+	void declGen(AstContext &astContext);
+	void codeGen(AstContext &astContext);
+	StmtType stmtType(){return CLASS_DECL;}
+};
+
+class NewObject : public Expression{
+public:
+	CallExpr &callExpr;
+	NewObject(CallExpr &callExpr):callExpr(callExpr){}
+	AstValue* codeGen(AstContext &astContext);
+};
+
+class ObjectField : public Expression{
+public:
+	Expression &expr;
+	string &fieldName;
+	ObjectField(Expression &expr,string &fieldName):expr(expr),fieldName(fieldName){}
+	AstValue* codeGen(AstContext &astContext);
+};
+
+class ObjectMethod : public Expression{
+public:
+	Expression &expr;
+	CallExpr &callExpr;
+	ObjectMethod(Expression &expr,CallExpr &callExpr):expr(expr),callExpr(callExpr){}
+	AstValue* codeGen(AstContext &astContext);
+	vector<AstValue*> mulitCodeGen(AstContext &astContext);
 };
 
 #endif // AST_H

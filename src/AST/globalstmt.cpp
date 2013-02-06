@@ -1,5 +1,5 @@
 #include "ast.hpp"
-#include "parser.hpp"
+//#include "parser.hpp"
 
 void FuncDecl::globalDeclGen(AstContext &astContext){
 	vector<Type*> returnTypes;

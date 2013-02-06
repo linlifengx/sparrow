@@ -28,6 +28,8 @@ void saveLocation(){
 <CMNT>.	{saveLocation();}
 <CMNT>\n	{charno = 1;}
 <CMNT>"*/"	{saveLocation(); BEGIN INITIAL;}
+"class"	{saveLocation(); yylval.token = CLASS; return CLASS;}
+"new"	{saveLocation(); yylval.token = NEW; return NEW;}
 "for"	{saveLocation(); yylval.token = FOR; return FOR;}
 "if"	{saveLocation(); yylval.token = IF; return IF;}
 "else"	{saveLocation(); yylval.token = ELSE; return ELSE;}
@@ -61,5 +63,14 @@ void saveLocation(){
 "!"	{saveLocation(); return '!';}
 "["	{saveLocation(); return '[';}
 "]"	{saveLocation(); return ']';}
+":" {saveLocation(); return ':';}
+"@" {saveLocation(); return '@';}
+"." {saveLocation(); return '.';}
+"#" {saveLocation(); return '#';}
+"%" {saveLocation(); return '%';}
+"$" {saveLocation(); return '$';}
+"?" {saveLocation(); return '?';}
+"^" {saveLocation(); return '^';}
+"~" {saveLocation(); return '~';}
 .	{saveLocation(); return ERROR;}
 %%

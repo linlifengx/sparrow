@@ -15,7 +15,7 @@ extern FILE *yyin;
 void yyerror(const char *msg){
 	cout<<yylineno<<":"<<(charno-yyleng)<<": error: "<<msg<<endl;
 	if(yyin != NULL){
-	fclose(yyin);
+		fclose(yyin);
 	}
 	exit(1);
 }
@@ -26,10 +26,10 @@ void setLocation(Node *node,YYLTYPE *loc,YYLTYPE *firstLoc,YYLTYPE *lastLoc){
 	loc->last_line = lastLoc->last_line;
 	loc->last_column = lastLoc->last_column;
 	if(node != NULL){
-	node->firstLine = loc->first_line;
-	node->firstColumn = loc->first_column;
-	node->lastLine = loc->last_line;
-	node->lastColumn = loc->last_column;
+		node->firstLine = loc->first_line;
+		node->firstColumn = loc->first_column;
+		node->lastLine = loc->last_line;
+		node->lastColumn = loc->last_column;
 	}
 }
 
@@ -39,10 +39,10 @@ void setLocation(Node *node,YYLTYPE *loc){
 	loc->last_line = yylineno;
 	loc->last_column = charno-1;
 	if(node != NULL){
-	node->firstLine = loc->first_line;
-	node->firstColumn = loc->first_line;
-	node->lastLine = loc->last_line;
-	node->lastColumn = loc->last_column;
+		node->firstLine = loc->first_line;
+		node->firstColumn = loc->first_line;
+		node->lastLine = loc->last_line;
+		node->lastColumn = loc->last_column;
 	}
 }
 
@@ -74,7 +74,7 @@ Program *program;
 }
 
 %token <str> IDENT DOUBLE LONG ERROR
-%token <token> RETURN FOR IF ELSE BREAK AND OR EQUAL NEQUAL TRUE FALSE LE GE CONTINUE
+%token <token> RETURN FOR IF ELSE BREAK AND OR EQUAL NEQUAL TRUE FALSE LE GE CONTINUE CLASS NEW 
 
 %type <program> program
 %type <stmt> stmt simple_stmt var_assi return_stmt if_stmt for_stmt for_init for_loop
@@ -101,6 +101,7 @@ Program *program;
 %left '*' '/'
 %nonassoc UMINUS
 %nonassoc LOGICNOT
+%nonassoc DOT
 
 %start program
 
@@ -109,12 +110,14 @@ program:
 	global_stmt_list {program=new Program(*$1);$$=program;setLocation($$,&@$,&@1,&@1);}
 	;
 global_stmt_list:
-	global_stmt {$$=new vector<GlobalStatement*>();$$->push_back($1);setLocation(NULL,&@$,&@1,&@1);}
+	/*blank*/ {$$=new vector<GlobalStatement*>();setLocation(NULL,&@$);}
+	|global_stmt {$$=new vector<GlobalStatement*>();$$->push_back($1);setLocation(NULL,&@$,&@1,&@1);}
 	|global_stmt_list global_stmt {$1->push_back($2);$$=$1;setLocation(NULL,&@$,&@1,&@2);}
 	;
 global_stmt:
 	var_decl ';' {$$=$1;setLocation($$,&@$,&@1,&@1);}
 	|func_decl {$$=$1;setLocation($$,&@$,&@1,&@1);}
+	|class_decl {$$=$1;setLocation($$,&@$,&@1,&@1);}
 	;
 var_decl:
 	IDENT var_init_list {$$=new VarDecl(*$1,*$2);setLocation($$,&@$,&@1,&@2);}
@@ -229,6 +232,9 @@ expr:
 	|numeric {$$=$1;setLocation($$,&@$,&@1,&@1);}
 	|bool {$$=$1;setLocation($$,&@$,&@1,&@1);}
 	|call_expr {$$=$1;setLocation($$,&@$,&@1,&@1);}
+	|NEW call_expr {$$=new NewObject(*$2);setLocation($$,&@$,&@1,&@2);}
+	|expr '.' IDENT %prec DOT {$$=new ObjectField(*$1,*$3);setLocation($$,&@$,&@1,&@3);}
+	|expr '.' call_expr %prec DOT {$$=new ObjectMethod(*$1,*$3);setLocation($$,&@$,&@1,&@3);}
 	;
 numeric:
 	LONG {$$=new Long(*$1);setLocation($$,&@$,&@1,&@1);}
@@ -246,4 +252,47 @@ expr_list:
 call_expr:
 	IDENT '(' expr_list ')' {$$=new CallExpr(*$1,*$3);setLocation($$,&@$,&@1,&@4);}
 	;
+
+class_decl:
+	CLASS IDENT super_class impl_interface '{' class_stmt_list '}' 
+	{$$=new ClassDecl(*$2,*$3,*$4,*$6);setLocation($$,&@$,&@1,&@7);}
+	;
+super_class:
+	/*blank*/ {$$=new string("");setLocation(NULL,&@$);}
+	|':' IDENT {$$=$2;setLocation($$,&@$,&@1,&@2);}
+	;
+impl_interface:
+	/*blank*/ {$$=new vector<string*>();setLocation(NULL,&@$);}
+	|'#' ident_list {$$=$2;setLocation(NULL,&@$,&@1,&@2);}
+	;
+class_stmt_list:
+	/*blank*/ {$$=new vector<GlobalStatement*>();setLocation(NULL,&@$);}
+	|class_stmt {$$=new vector<GlobalStatement*>();$$->push_back($1);setLocation(NULL,&@$,&@1,&@1);}
+	|class_stmt_list class_stmt {$$=new vector<GlobalStatement*>();$$->push_back($1);setLocation(NULL,&@$,&@1,&@1);}
+	;
+class_stmt:
+	var_decl ';' {$$=$1;setLocation($$,&@$,&@1,&@2);}
+	|func_decl {$$=$1;setLocation($$,&@$,&@1,&@1);}
+	|constructor {$$=$1;setLocation($$,&@$,&@1,&@1);}
+	;
+constructor:
+	IDENT '(' spvar_decl_list ')' '{' stmt_list '}' {$$=new Constructor(*$1,*$3,*$6);setLocation($$,&@$,&@1,&@7);}
+	;
+
+interface_decl:
+	'#' IDENT super_class '{' interface_stmt_list '}' {$$=new InterfaceDecl(*$2,*$3,*$5);setLocation($$,&@$,&@1,&@6);}
+	;
+interface_stmt_list:
+	/*blank*/ {$$=new vector<InterfaceStmt*>();setLocation(NULL,&@$);}
+	|interface_stmt {$$=new vector<InterfaceStmt*>();$$->push_back($1);setLocation($$,&@$,&@1,&@1);}
+	|interface_stmt_list interface_stmt {$$=$1;$$->push_back($2);setLocation($$,&@$,&@1,&@2);}
+	;
+interface_stmt:
+	IDENT ident_list ';' {$$=new InterfaceVarDecl(*$1,*$2);setLocation($$,&@$,&@1,&@3);}
+	|IDENT IDENT '(' spvar_decl_list ')' ';' 
+	{vector<string*> *types = new vector<string*>();types->push_back($1);
+	$$=new InterfaceFuncDecl(*types,*$2,*$4);setLocation($$,&@$,&@1,&@6);}
+	|ident_list IDENT '(' spvar_decl_list ')' ';' {$$=new InterfaceFuncDecl(*$1,*$2,*$4);setLocation($$,&@$,&@1,&@6);}
+	;
+
 %%

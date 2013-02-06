@@ -17,7 +17,7 @@
 #include <llvm/CodeGen/CommandFlags.h>
 
 #include "ast.hpp"
-#include "parser.hpp"
+//#include "parser.hpp"
 
 extern Program *program;
 extern int yyparse();
@@ -29,6 +29,7 @@ Module module("test",context);
 IRBuilder<> builder(context);
 Function *startFunc = NULL;
 string errorMsg;
+Type *ptrType = NULL;
 
 int main(int argc,char **argv){
 	bool runJit = false;
@@ -108,6 +109,8 @@ int main(int argc,char **argv){
 	if(yyin != NULL){
 		fclose(yyin);
 	}
+	
+	ptrType = builder.getInt8PtrTy();
 	
 	AstContext astContext;
 	astContext.addType("long",builder.getInt64Ty());
@@ -223,7 +226,7 @@ void createSystemFunctions(AstContext &astContext){
 	Value *longFormat = builder.CreateGlobalStringPtr("%ld");
 	builder.CreateCall2(printfFunc,longFormat,printfLongFunc->arg_begin());
 	builder.CreateRetVoid();
-	MyFunction *printfL = new MyFunction("printL",printfLongFunc,emptyTypes,printfLongFuncArgTypes);
+	AstFunction *printfL = new AstFunction("printL",printfLongFunc,emptyTypes,printfLongFuncArgTypes);
 	
 	//create print double func
 	vector<Type*> printfDoubleFuncArgTypes;
@@ -235,7 +238,7 @@ void createSystemFunctions(AstContext &astContext){
 	Value *doubleFormat = builder.CreateGlobalStringPtr("%lf");
 	builder.CreateCall2(printfFunc,doubleFormat,printfDoubleFunc->arg_begin());
 	builder.CreateRetVoid();
-	MyFunction *printfD = new MyFunction("printD",printfDoubleFunc,emptyTypes,printfDoubleFuncArgTypes);
+	AstFunction *printfD = new AstFunction("printD",printfDoubleFunc,emptyTypes,printfDoubleFuncArgTypes);
 	
 	//create print bool func
 	vector<Type*> printfBoolFuncArgTypes;
@@ -255,7 +258,7 @@ void createSystemFunctions(AstContext &astContext){
 	Value *falseStr = builder.CreateGlobalStringPtr("false");
 	builder.CreateCall(printfFunc,falseStr);
 	builder.CreateRetVoid();
-	MyFunction *printfB = new MyFunction("printB",printfBoolFunc,emptyTypes,printfBoolFuncArgTypes);
+	AstFunction *printfB = new AstFunction("printB",printfBoolFunc,emptyTypes,printfBoolFuncArgTypes);
 	
 	//create println func
 	FunctionType *printlnFuncType = FunctionType::get(builder.getVoidTy(),false);
@@ -264,7 +267,7 @@ void createSystemFunctions(AstContext &astContext){
 	Value *lnFormat = builder.CreateGlobalStringPtr("\n");
 	builder.CreateCall(printfFunc,lnFormat);
 	builder.CreateRetVoid();
-	MyFunction *println = new MyFunction("println",printlnFunc,emptyTypes,emptyTypes);
+	AstFunction *println = new AstFunction("println",printlnFunc,emptyTypes,emptyTypes);
 	
 	//astContext.addFunction("printf",cast<Function>(printfFunc));
 	astContext.addFunction("printL",printfL);

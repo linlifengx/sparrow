@@ -1,5 +1,5 @@
 #include "ast.hpp"
-#include "parser.hpp"
+//#include "parser.hpp"
 
 void VarDecl::codeGen(AstContext &astContext){
 	Type *type = astContext.getType(typeName);
