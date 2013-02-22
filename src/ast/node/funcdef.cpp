@@ -1,12 +1,13 @@
 #include "statement.h"
 #include "expression.h"
+#include "support.h"
 
 FunctionInfo* FuncDecl::codeGen(ClassInfo *classInfo) {
 	vector<ClassInfo*> returnInfos;
 	vector<Type*> returnllvmTypes;
 	if (style == 0) {
-		for (unsigned i = 0; i < returnClasses.size(); i++) {
-			ClassInfo *clazz = getClass(returnClasses[i]);
+		for (unsigned i = 0; i < returnTypes.size(); i++) {
+			ClassInfo *clazz = returnTypes[i]->getClassInfo();
 			if (clazz == NULL) {
 				throwError(this);
 			}
@@ -15,7 +16,7 @@ FunctionInfo* FuncDecl::codeGen(ClassInfo *classInfo) {
 		}
 	} else {
 		for (unsigned i = 0; i < returnDecls.size(); i++) {
-			ClassInfo *clazz = getClass(returnDecls[i]->typeName);
+			ClassInfo *clazz = returnDecls[i]->typeDecl->getClassInfo();
 			if (clazz == NULL) {
 				throwError(this);
 			}
@@ -43,7 +44,7 @@ FunctionInfo* FuncDecl::codeGen(ClassInfo *classInfo) {
 	}
 	for (unsigned i = 0; i < argDecls.size(); i++) {
 		SimpleVarDecl *argDecl = argDecls[i];
-		ClassInfo *clazz = getClass(argDecl->typeName);
+		ClassInfo *clazz = argDecl->typeDecl->getClassInfo();
 		if (clazz == NULL) {
 			throwError(argDecl);
 		}
@@ -67,7 +68,7 @@ FunctionInfo* FuncDecl::codeGen(ClassInfo *classInfo) {
 			throwError(this);
 		}
 	} else {
-		if (!addFunction(functionInfo)) {
+		if (!globalContext.addFunction(functionInfo)) {
 			throwError(this);
 		}
 	}
@@ -80,38 +81,39 @@ Function* FuncDef::declGen(ClassInfo* classInfo) {
 	return functionInfo->llvmFunction;
 }
 
-void FuncDef::codeGen(AstContext &astContext) {
+void FuncDef::codeGen() {
 	ClassInfo *classInfo = functionInfo->dominateClass;
 	unsigned isMethod = classInfo == NULL ? 0 : 1;
 	Function *function = functionInfo->llvmFunction;
 	vector<ClassInfo*> &returnClasses = functionInfo->returnClasses;
 	vector<ClassInfo*> &argClasses = functionInfo->argClasses;
-	AstContext newContext(&astContext);
+	AstContext astContext;
 
 	BasicBlock *allocBB = BasicBlock::Create(context, "alloc", function);
 	BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
-	newContext.allocBB = allocBB;
+	astContext.allocBB = allocBB;
 	builder.SetInsertPoint(allocBB);
 	unsigned i = 0;
-	ClassContext *classContext = NULL;
+	ClassContext classContext(classInfo,allocBB);
 	for (Function::arg_iterator ai = function->arg_begin();
 			ai != function->arg_end(); ai++, i++) {
 		if (i == 0 && isMethod) {
-			classContext = new ClassContext(classInfo, allocBB, ai);
+			classContext.thisObject = ai;
 		} else {
 			SimpleVarDecl *argDecl = funcDecl->argDecls[i - isMethod];
 			ClassInfo *argClazz = argClasses[i];
 			Value *alloc = builder.CreateAlloca(argClazz->llvmType);
 			builder.CreateStore(ai, alloc);
-			if (!newContext.addVar(argDecl->varName, AValue(alloc, argClazz))) {
+			if (!astContext.addVar(argDecl->varName, AValue(alloc, argClazz))) {
 				throwError(argDecl);
 			}
 		}
 	}
 
+	vector<Value*> returnVars;
 	if (functionInfo->returnNum > 0) {
 		Value *retAlloc = builder.CreateAlloca(functionInfo->returnType);
-		newContext.returnAlloc = retAlloc;
+		astContext.returnAlloc = retAlloc;
 		for (i = 0; i < functionInfo->returnNum; i++) {
 			ClassInfo *retClazz = returnClasses[i];
 			Value *retElement = NULL;
@@ -121,26 +123,27 @@ void FuncDef::codeGen(AstContext &astContext) {
 				retElement = builder.CreateStructGEP(retAlloc, i);
 			}
 			builder.CreateStore(retClazz->getInitial(), retElement);
-			newContext.returnVars.push_back(retElement);
+			returnVars.push_back(retElement);
 			if (funcDecl->style == 1) {
 				SimpleVarDecl *retDecl = funcDecl->returnDecls[i];
-				if (!newContext.addVar(retDecl->varName,
+				if (!astContext.addVar(retDecl->varName,
 						AValue(retElement, retClazz))) {
 					throwError(retDecl);
 				}
 			}
 		}
 	}
+	astContext.returnVars = &returnVars;
 
-	newContext.currentFunc = functionInfo;
-	newContext.classContext = classContext;
+	astContext.currentFunc = functionInfo;
+	astContext.classContext = &classContext;
 	builder.SetInsertPoint(entryBB);
-	stmtBlock->codeGen(newContext);
+	stmtBlock->codeGen(astContext);
 
 	if (functionInfo->returnNum == 0) {
 		builder.CreateRetVoid();
 	} else {
-		builder.CreateRet(builder.CreateLoad(newContext.returnAlloc));
+		builder.CreateRet(builder.CreateLoad(astContext.returnAlloc));
 	}
 
 	builder.SetInsertPoint(allocBB);

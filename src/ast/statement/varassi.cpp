@@ -1,25 +1,29 @@
 #include "statement.h"
 #include "expression.h"
+#include "support.h"
 
 void VarAssi::codeGen(AstContext &astContext) {
-	AValue var = identExpr->lvalueGen(astContext);
-	AValue value = expr->codeGen(astContext);
-	if (!value.castTo(var.clazz)) {
-		throwError(expr);
+	AValue var = leftExpr->lvalueGen(astContext);
+	if (var.isReadOnly) {
+		errorMsg = "read-only variable is not assignable";
+		throwError(leftExpr);
 	}
+	expr->expectedType = var.clazz;
+	AValue value = expr->codeGen(astContext);
 	builder.CreateStore(value.llvmValue, var.llvmValue);
 }
 
 void MultiVarAssi::codeGen(AstContext &astContext) {
 	vector<AValue> vars;
-	for (unsigned i = 0; i < identList.size(); i++) {
-		IdentExpr *identExpr = identList[i];
-		if (identExpr == NULL) {
+	for (unsigned i = 0; i < leftExprList.size(); i++) {
+		LeftValueExpr *leftExpr = leftExprList[i];
+		if (leftExpr == NULL) {
 			vars.push_back(AValue());
 		} else {
-			AValue var = identExpr->lvalueGen(astContext);
-			if (var.llvmValue == NULL) {
-				throwError(identExpr);
+			AValue var = leftExpr->lvalueGen(astContext);
+			if (var.isReadOnly) {
+				errorMsg = "read-only variable is not assignable";
+				throwError(leftExpr);
 			}
 			vars.push_back(var);
 		}
@@ -41,5 +45,26 @@ void MultiVarAssi::codeGen(AstContext &astContext) {
 			throwError(this);
 		}
 		builder.CreateStore(v.llvmValue, vars[i].llvmValue);
+	}
+}
+
+void ArrayAssi::codeGen(AstContext &astContext) {
+	AValue arrayV = leftExpr->codeGen(astContext);
+	if (!arrayV.isArray()) {
+		errorMsg = "left expression must be a array";
+		throwError(leftExpr);
+	}
+	for (unsigned i = 0; i < exprList.size(); i++) {
+		if (exprList[i] == NULL) {
+			continue;
+		}
+		exprList[i]->expectedType = arrayV.clazz->originClassInfo;
+		AValue v = exprList[i]->codeGen(astContext);
+		Value *elementPtr = builder.CreateCall2(sysArrayElement,
+				arrayV.llvmValue, builder.getInt64(i));
+		elementPtr = builder.CreateBitCast(elementPtr,
+				PointerType::getUnqual(
+						arrayV.clazz->originClassInfo->llvmType));
+		builder.CreateStore(v.llvmValue, elementPtr);
 	}
 }

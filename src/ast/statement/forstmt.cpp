@@ -13,10 +13,8 @@ void ForStmt::codeGen(AstContext &astContext) {
 	builder.CreateBr(forHeadBB);
 
 	builder.SetInsertPoint(forHeadBB);
+	condExpr->expectedType = boolClass;
 	AValue cond = condExpr->codeGen(headContext);
-	if (!cond.castTo(boolClass)) {
-		throwError(condExpr);
-	}
 	builder.CreateCondBr(cond.llvmValue, forBodyBB, outBB);
 
 	func->getBasicBlockList().push_back(forBodyBB);
@@ -24,7 +22,7 @@ void ForStmt::codeGen(AstContext &astContext) {
 	AstContext bodyContext(&headContext);
 	bodyContext.breakOutBB = outBB;
 	bodyContext.continueBB = forFootBB;
-	stmtList->codeGen(bodyContext);
+	block->codeGen(bodyContext);
 	builder.CreateBr(forFootBB);
 
 	func->getBasicBlockList().push_back(forFootBB);

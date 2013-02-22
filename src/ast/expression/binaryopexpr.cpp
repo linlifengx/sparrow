@@ -1,9 +1,9 @@
 #include "expression.h"
-#include "support.h"
 #include "statement.h"
+#include "support.h"
 #include "parser.hpp"
 
-AValue BinaryOpExpr::codeGen(AstContext &astContext) {
+AValue BinaryOpExpr::gen(AstContext &astContext) {
 	AValue lv = leftExpr->codeGen(astContext);
 	AValue rv = rightExpr->codeGen(astContext);
 	AValue res;
@@ -18,15 +18,21 @@ AValue BinaryOpExpr::codeGen(AstContext &astContext) {
 					boolClass);
 			break;
 		}
-	} else if ((lv.isLong() || lv.isDouble())
-			&& (rv.isLong() || rv.isDouble())) {
-		if (lv.isDouble()) {
-			if (!rv.castTo(lv.clazz)) {
+	} else if ((lv.isLong() || lv.isDouble() || lv.isChar())
+			&& (rv.isLong() || rv.isDouble() || rv.isChar())) {
+		if (lv.isDouble() || rv.isDouble()) {
+			if (!lv.castTo(doubleClass)) {
+				throwError(leftExpr);
+			}
+			if (!rv.castTo(doubleClass)) {
 				throwError(rightExpr);
 			}
-		} else {
-			if (!lv.castTo(rv.clazz)) {
+		} else if (lv.isLong() || rv.isLong()) {
+			if (!lv.castTo(longClass)) {
 				throwError(leftExpr);
+			}
+			if (!rv.castTo(longClass)) {
+				throwError(rightExpr);
 			}
 		}
 		if (lv.isDouble()) {
@@ -76,19 +82,19 @@ AValue BinaryOpExpr::codeGen(AstContext &astContext) {
 			switch (op) {
 			case '+':
 				res = AValue(builder.CreateAdd(lv.llvmValue, rv.llvmValue),
-						longClass);
+						lv.clazz);
 				break;
 			case '-':
 				res = AValue(builder.CreateSub(lv.llvmValue, rv.llvmValue),
-						longClass);
+						lv.clazz);
 				break;
 			case '*':
 				res = AValue(builder.CreateMul(lv.llvmValue, rv.llvmValue),
-						longClass);
+						lv.clazz);
 				break;
 			case '/':
 				res = AValue(builder.CreateSDiv(lv.llvmValue, rv.llvmValue),
-						longClass);
+						lv.clazz);
 				break;
 			case EQUAL:
 				res = AValue(builder.CreateICmpEQ(lv.llvmValue, rv.llvmValue),
@@ -116,7 +122,8 @@ AValue BinaryOpExpr::codeGen(AstContext &astContext) {
 				break;
 			}
 		}
-	} else if (lv.isObject() && rv.isObject()) {
+	} else if ((lv.isObject() || lv.isArray())
+			&& (rv.isObject() || rv.isArray())) {
 		if (op == EQUAL) {
 			res = AValue(builder.CreateICmpEQ(lv.llvmValue, rv.llvmValue),
 					boolClass);

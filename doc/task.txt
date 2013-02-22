@@ -5,7 +5,5 @@ problems
 
 tasks
 ----------------------------------------
-char
-array
 enum with type
 module

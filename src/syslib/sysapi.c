@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <wchar.h>
+#include <locale.h>
 #include "gc.h"
 
 struct CLASS_INFO {
@@ -11,44 +13,48 @@ struct CLASS_INFO {
 	char **fieldNameTable;
 	char **methodNameTable;
 	void **methodTable;
-	unsigned int fieldCount;
-	unsigned int methodCount;
+	uint32_t fieldCount;
+	uint32_t methodCount;
 };
 typedef struct CLASS_INFO ClassInfo;
 
-//static int alloca_time = 0;
-
 static int getFieldIndex(ClassInfo *classInfo, char *fieldName);
-void* getMethodPtr(ClassInfo *classInfo, char *methodName);
+static void* getMethodPtr(ClassInfo *classInfo, char *methodName);
 
 void gcInit() {
+	setlocale(LC_CTYPE, "en_US.UTF-8");
 	GC_INIT();
 }
 
 void println() {
-	printf("\n");
+	wprintf(L"\n");
 }
 
-void printL(long long v) {
-	printf("%lld", v);
+void printL(int64_t v) {
+	wprintf(L"%lld", v);
 }
 
 void printD(double v) {
-	printf("%lf", v);
+	wprintf(L"%lf", v);
 }
 
-void printB(int v) {
+void printB(int8_t v) {
 	if (v) {
-		printf("true");
+		wprintf(L"true");
 	} else {
-		printf("false");
+		wprintf(L"false");
 	}
+}
+
+//wchar_t == int32_t
+void printC(wchar_t wc) {
+	wprintf(L"%lc", wc);
 }
 
 // return field ptr
 void* sysObjectField(int64_t *object, char *fieldName) {
 	if (object == NULL ) {
-		printf("Error in getting field from null point!\n");
+		wprintf(L"Error in getting field from null point!\n");
 		exit(1);
 	}
 	ClassInfo *classInfo = *((ClassInfo**) object);
@@ -65,7 +71,7 @@ void* sysObjectField(int64_t *object, char *fieldName) {
 
 void* sysObjectMethod(int64_t *object, char *methodName) {
 	if (object == NULL ) {
-		printf("Error in invoking method from null point!\n");
+		wprintf(L"Error in invoking method from null point!\n");
 		exit(1);
 	}
 	ClassInfo *classInfo = *((ClassInfo**) object);
@@ -73,21 +79,17 @@ void* sysObjectMethod(int64_t *object, char *methodName) {
 }
 
 void* sysObjectAlloca(ClassInfo *classInfo) {
-	//alloca_time++;
-	unsigned int size = (classInfo->fieldCount + 2) * sizeof(int64_t);
+	uint32_t size = (classInfo->fieldCount + 2) * sizeof(int64_t);
 	void *data = memset(GC_MALLOC(size), 0, size);
 	ClassInfo **infoPtr = (ClassInfo**) data;
 	*infoPtr = classInfo;
-	/*	if (alloca_time % 1024 == 0) {
-	 printf("Heap size = %d\n", GC_get_heap_size());
-	 }*/
 	return data;
 }
 
-int getFieldIndex(ClassInfo *classInfo, char *fieldName) {
+static int getFieldIndex(ClassInfo *classInfo, char *fieldName) {
 	char **fieldNameTable = classInfo->fieldNameTable;
-	unsigned int fieldCount = classInfo->fieldCount;
-	for (unsigned int i = 0; i < fieldCount; i++) {
+	uint32_t fieldCount = classInfo->fieldCount;
+	for (uint32_t i = 0; i < fieldCount; i++) {
 		if (strcmp(fieldName, fieldNameTable[i]) == 0) {
 			return i;
 		}
@@ -95,11 +97,11 @@ int getFieldIndex(ClassInfo *classInfo, char *fieldName) {
 	return -1;
 }
 
-void* getMethodPtr(ClassInfo *classInfo, char *methodName) {
+static void* getMethodPtr(ClassInfo *classInfo, char *methodName) {
 	char **methodNameTable = classInfo->methodNameTable;
 	void **methodTable = classInfo->methodTable;
-	unsigned int methodCount = classInfo->methodCount;
-	for (unsigned int i = 0; i < methodCount; i++) {
+	uint32_t methodCount = classInfo->methodCount;
+	for (uint32_t i = 0; i < methodCount; i++) {
 		if (strcmp(methodName, methodNameTable[i]) == 0) {
 			return methodTable[i];
 		}
@@ -110,11 +112,78 @@ void* getMethodPtr(ClassInfo *classInfo, char *methodName) {
 	return NULL ;
 }
 
-void* sysAlloca(int size) {
-	//alloca_time++;
-	void *data = memset(GC_MALLOC(size), 0, size);
-	/*	if (alloca_time % 1024 == 0) {
-	 printf("Heap size = %d\n", GC_get_heap_size());
-	 }*/
-	return data;
+void* sysArrayElement(void *arrayObject, int64_t index) {
+	if (arrayObject == NULL ) {
+		wprintf(L"Error in getting element from null point!\n");
+		exit(1);
+	}
+
+	int64_t length = *((int64_t*) arrayObject);
+	int8_t width = *((int8_t*) (arrayObject + sizeof(int64_t)));
+
+	if (length == 0) {
+		wprintf(L"Error in getting element from zero array!\n");
+		exit(1);
+	}
+
+	index = index % length;
+	index = index < 0 ? index + length : index;
+	void *head = arrayObject + sizeof(int64_t) + sizeof(int8_t);
+	return head + index * width;
+}
+
+void* sysArrayAlloca(int64_t length, int8_t width, void *inital) {
+	if (length < 0) {
+		wprintf(L"Error in allocating array with length < 0 !\n");
+		exit(1);
+	}
+	int64_t dataSize = length * width;
+	int64_t allocaSize = sizeof(int64_t) + sizeof(int8_t) + length * width;
+	void *object = GC_MALLOC(allocaSize);
+	*((int64_t*) object) = length;
+	*((int8_t*) (object + sizeof(int64_t))) = width;
+
+	if (inital != NULL ) {
+		memcpy(object + sizeof(int64_t) + sizeof(int8_t), inital,
+				length * width);
+	} else if (length > 0) {
+		memset(object + sizeof(int64_t) + sizeof(int8_t), 0, dataSize);
+	}
+	return object;
+}
+
+int64_t* sysArrayLength(void *arrayObject) {
+	if (arrayObject == NULL ) {
+		wprintf(L"Error in getting length from null point!\n");
+		exit(1);
+	}
+	return (int64_t*) arrayObject;
+}
+
+int64_t sysGetHeapSize() {
+	return GC_get_heap_size();
+}
+
+int8_t sysInstanceOf(int64_t *object, ClassInfo *destClass) {
+	if (object == NULL ) {
+		return 1;
+	} else {
+		ClassInfo *srcClass = *((ClassInfo**) object);
+		while (srcClass != NULL ) {
+			if (srcClass == destClass) {
+				return 1;
+			} else {
+				srcClass = srcClass->superClass;
+			}
+		}
+		return 0;
+	}
+}
+
+void* sysDynamicCast(int64_t *object, ClassInfo *destClass) {
+	if (sysInstanceOf(object, destClass)) {
+		return object;
+	} else {
+		return NULL ;
+	}
 }

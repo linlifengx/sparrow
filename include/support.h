@@ -1,24 +1,7 @@
-#ifndef AST_SUPPORT_H
-#define AST_SUPPORT_H
+#ifndef AST_SUPPORT_H_
+#define AST_SUPPORT_H_
 
-#include <stddef.h>
-#include <map>
-#include <vector>
-#include <string>
-#include <iostream>
-
-#include <llvm/IRBuilder.h>
-#include <llvm/Function.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
-
-class Node;
-class ClassInfo;
-class FunctionInfo;
-class ClassContext;
-class ClassDef;
-class AFunction;
-class AValue;
+#include "common.h"
 
 using namespace std;
 using namespace llvm;
@@ -26,22 +9,25 @@ using namespace llvm;
 extern LLVMContext &context;
 extern Module module;
 extern IRBuilder<> builder;
+extern DataLayout *dataLayout;
+extern GlobalContext globalContext;
 
-extern map<string, ClassInfo*> classTable;
-extern map<string, FunctionInfo*> functionTable;
 extern Type *ptrType;
 extern Type *ptrptrType;
 extern Type *int64Type;
+extern Type *int32Type;
 extern Type *doubleType;
 extern Type *boolType;
 extern Type *voidType;
 extern ClassInfo *longClass;
+extern ClassInfo *charClass;
 extern ClassInfo *doubleClass;
 extern ClassInfo *boolClass;
 extern ClassInfo *nilClass;
 extern ClassInfo *voidClass;
 
 extern Constant *int64_0;
+extern Constant *int32_0;
 extern Constant *double_0;
 extern Constant *bool_true;
 extern Constant *bool_false;
@@ -51,16 +37,18 @@ extern Constant *sysGCinit;
 extern Constant *sysObjectField;
 extern Constant *sysObjectMethod;
 extern Constant *sysObjectAlloca;
+extern Constant *sysArrayElement;
+extern Constant *sysArrayAlloca;
+extern Constant *sysArrayLength;
+extern Constant *sysGetHeapSize;
+extern Constant *sysDynamicCast;
+extern Constant *sysInstanceOf;
 extern Function *mainFunc;
 
 extern string errorMsg;
 
 extern void throwError(Node *node);
-extern bool addClass(ClassInfo *clazz);
-extern bool addFunction(FunctionInfo *func);
-extern ClassInfo* getClass(string &name);
 extern string getOperatorName(int op);
-extern AFunction getFunctionV(string &name);
 extern AFunction getMethodV(AValue object, string &methodName);
 extern AValue getFieldV(AValue object, string &fieldName);
 extern Value* createAlloca(Type *type, BasicBlock *bb);
@@ -79,6 +67,9 @@ public:
 	map<string, ClassInfo*> fieldTable;
 	map<string, FunctionInfo*> methodTable;
 
+	ClassInfo *originClassInfo;
+	ClassInfo *arrayClassInfo;
+
 	ClassInfo(string name, ClassDef *classDef = NULL, Type *llvmType = ptrType);
 
 	bool isSubClassOf(ClassInfo *superClass);
@@ -87,6 +78,14 @@ public:
 	ClassInfo* getFieldClass(string &name);
 	FunctionInfo* getMethod(string &name);
 	Constant* getInitial();
+	ClassInfo* getArrayClass();
+
+	bool isBoolType();
+	bool isLongType();
+	bool isDoubleType();
+	bool isArrayType();
+	bool isObjectType();
+	bool isCharType();
 };
 
 class FunctionInfo {
@@ -102,7 +101,7 @@ public:
 	int style;  //0 normal 1 retdecl 2 constructor
 
 	FunctionInfo(string name, Function *llvmFunction,
-			vector<ClassInfo*> returnClasses, vector<ClassInfo*> argClasses,
+			vector<ClassInfo*> &returnClasses, vector<ClassInfo*> &argClasses,
 			int style = 0, ClassInfo *dominateClass = NULL) {
 		this->name = name;
 		this->llvmFunction = llvmFunction;
@@ -128,17 +127,22 @@ class AValue {
 public:
 	Value *llvmValue;
 	ClassInfo *clazz;
+	bool isReadOnly;
 
-	AValue(Value *llvmValue = NULL, ClassInfo *clazz = NULL) {
+	AValue(Value *llvmValue = NULL, ClassInfo *clazz = NULL, bool isReadOnly =
+			false) {
 		this->llvmValue = llvmValue;
 		this->clazz = clazz;
+		this->isReadOnly = isReadOnly;
 	}
 
 	bool castTo(ClassInfo *destClazz);
 	bool isBool();
 	bool isLong();
+	bool isChar();
 	bool isDouble();
 	bool isObject();
+	bool isArray();
 };
 
 class AFunction {
@@ -162,7 +166,7 @@ public:
 	BasicBlock *breakOutBB;
 	BasicBlock *continueBB;
 	ClassContext *classContext;
-	vector<Value*> returnVars;
+	vector<Value*> *returnVars;
 	Value *returnAlloc;
 
 	explicit AstContext(AstContext *superior = NULL) {
@@ -173,6 +177,7 @@ public:
 			this->breakOutBB = superior->breakOutBB;
 			this->continueBB = superior->continueBB;
 			this->classContext = superior->classContext;
+			this->returnVars = superior->returnVars;
 			this->returnAlloc = superior->returnAlloc;
 		} else {
 			this->currentFunc = NULL;
@@ -180,6 +185,7 @@ public:
 			this->breakOutBB = NULL;
 			this->continueBB = NULL;
 			this->classContext = NULL;
+			this->returnVars = NULL;
 			this->returnAlloc = NULL;
 		}
 	}
@@ -187,7 +193,6 @@ public:
 	bool addVar(string &name, AValue avalue);
 	AValue getVar(string &name);
 	AFunction getFunc(string &name);
-	vector<Value*>& getReturnVars();
 };
 
 class ClassContext {
@@ -201,7 +206,7 @@ public:
 	map<string, AValue> superFieldTable;
 	map<string, AFunction> superMethodTable;
 
-	ClassContext(ClassInfo *currentClass, BasicBlock *allocBB,
+	ClassContext(ClassInfo *currentClass, BasicBlock *allocBB = NULL,
 			Value *thisObject = NULL, Value *superObject = NULL) {
 		this->currentClass = currentClass;
 		this->thisObject = thisObject;
@@ -213,6 +218,20 @@ public:
 	AFunction getMethod(string &name);
 	AValue getSuperField(string &name);
 	AFunction getSuperMethod(string &name);
+};
+
+class GlobalContext {
+public:
+	map<string, ClassInfo*> classTable;
+	map<string, FunctionInfo*> functionTable;
+	map<string, AValue> varTable;
+
+	bool addClass(ClassInfo *clazz);
+	bool addFunction(FunctionInfo *func);
+	bool addVar(string &name, AValue avalue);
+	ClassInfo* getClass(string &name);
+	AFunction getFunctionV(string &name);
+	AValue getVar(string &name);
 };
 
 #endif

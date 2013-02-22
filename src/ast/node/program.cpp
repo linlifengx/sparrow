@@ -1,14 +1,13 @@
-#include <iostream>
-
 #include "statement.h"
+#include "support.h"
 
 static void classDeclGen(ClassInfo *clazz);
 
-void Program::codeGen(AstContext &astContext) {
+void Program::codeGen() {
 	// add clazz
 	for (unsigned i = 0; i < classDefs.size(); i++) {
 		ClassInfo *clazz = new ClassInfo(classDefs[i]->className, classDefs[i]);
-		if (!addClass(clazz)) {
+		if (!globalContext.addClass(clazz)) {
 			throwError(classDefs[i]);
 		}
 	}
@@ -16,12 +15,12 @@ void Program::codeGen(AstContext &astContext) {
 		ClassDef *classDef = classDefs[i];
 		ClassInfo *clazz = classDef->classInfo;
 		if (classDef->superName != "") {
-			ClassInfo *superClass = getClass(classDef->superName);
+			ClassInfo *superClass = globalContext.getClass(classDef->superName);
 			if (superClass == NULL) {
 				throwError(classDef);
 			}
-			if (superClass == longClass || superClass == doubleClass
-					|| superClass == boolClass) {
+			if (superClass->isLongType() || superClass->isDoubleType()
+					|| superClass->isBoolType() || superClass->isCharType()) {
 				errorMsg = "can't extends class " + superClass->name;
 				throwError(classDef);
 			}
@@ -46,10 +45,10 @@ void Program::codeGen(AstContext &astContext) {
 	builder.SetInsertPoint(BasicBlock::Create(context, "entry", mainFunc));
 	builder.CreateCall(sysGCinit);
 	for (unsigned i = 0; i < varDefs.size(); i++) {
-		varDefs[i]->globalGen(astContext);
+		varDefs[i]->globalGen();
 	}
 	string mainStr = "main";
-	AFunction mainF = getFunctionV(mainStr);
+	AFunction mainF = globalContext.getFunctionV(mainStr);
 	if (mainF.llvmFunc == NULL) {
 		cout << errorMsg << endl;
 	} else {
@@ -59,12 +58,12 @@ void Program::codeGen(AstContext &astContext) {
 
 	// class gen
 	for (unsigned i = 0; i < classDefs.size(); i++) {
-		classDefs[i]->codeGen(astContext);
+		classDefs[i]->codeGen();
 	}
 
 	// function gen
 	for (unsigned i = 0; i < funcDefs.size(); i++) {
-		funcDefs[i]->codeGen(astContext);
+		funcDefs[i]->codeGen();
 	}
 }
 
@@ -85,4 +84,16 @@ void classDeclGen(ClassInfo *clazz) {
 	}
 	clazz->classDef->declGen();
 	clazz->status = 2;
+}
+
+ClassInfo* TypeDecl::getClassInfo() {
+	ClassInfo *classInfo = globalContext.getClass(typeName);
+	if (classInfo == NULL) {
+		throwError(this);
+	}
+
+	for (unsigned i = 0; i < dimension; i++) {
+		classInfo = classInfo->getArrayClass();
+	}
+	return classInfo;
 }

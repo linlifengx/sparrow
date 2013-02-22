@@ -42,3 +42,11 @@ object layout
 │value          │
 │......         │
 └───────────────┘
+
+array layout
+┌───────────┐
+│length     │
+│bitwidth   │
+│data       │
+│......     │
+└───────────┘

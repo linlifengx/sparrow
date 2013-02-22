@@ -1,5 +1,3 @@
-#include <iostream>
-#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -24,6 +22,7 @@
 
 #include "statement.h"
 #include "expression.h"
+#include "support.h"
 #include "parser.hpp"
 
 extern int yyparse();
@@ -32,22 +31,25 @@ extern FILE *yyin;
 LLVMContext &context = getGlobalContext();
 Module module("test", context);
 IRBuilder<> builder(context);
+DataLayout *dataLayout = NULL;
+GlobalContext globalContext;
 
-map<string, ClassInfo*> classTable;
-map<string, FunctionInfo*> functionTable;
 Type *ptrType = NULL;
 Type *ptrptrType = NULL;
 Type *int64Type = NULL;
+Type *int32Type = NULL;
 Type *doubleType = NULL;
 Type *boolType = NULL;
 Type *voidType = NULL;
 ClassInfo *longClass = NULL;
+ClassInfo *charClass = NULL;
 ClassInfo *doubleClass = NULL;
 ClassInfo *boolClass = NULL;
 ClassInfo *nilClass = NULL;
 ClassInfo *voidClass = NULL;
 
 Constant *int64_0 = NULL;
+Constant *int32_0 = NULL;
 Constant *double_0 = NULL;
 Constant *bool_true = NULL;
 Constant *bool_false = NULL;
@@ -57,13 +59,19 @@ Constant *sysGCinit = NULL;
 Constant *sysObjectField = NULL;
 Constant *sysObjectAlloca = NULL;
 Constant *sysObjectMethod = NULL;
+Constant *sysArrayElement = NULL;
+Constant *sysArrayAlloca = NULL;
+Constant *sysArrayLength = NULL;
+Constant *sysGetHeapSize = NULL;
+Constant *sysDynamicCast = NULL;
+Constant *sysInstanceOf = NULL;
 Function *mainFunc = NULL;
 
 string errorMsg;
 Function *startFunc = NULL;
 Program *program = NULL;
 
-static void createSystemFunctions(AstContext &astContext);
+static void createSystemFunctions();
 static void initGlobals();
 
 int main(int argc, char **argv) {
@@ -138,10 +146,9 @@ int main(int argc, char **argv) {
 	}
 
 	initGlobals();
-	AstContext astContext;
-	createSystemFunctions(astContext);
+	createSystemFunctions();
 
-	program->codeGen(astContext);
+	program->codeGen();
 	//module.dump();cout<<endl;
 
 	InitializeNativeTarget();
@@ -208,7 +215,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		PassManager passManager;
-		passManager.add(new DataLayout(&module));
+		passManager.add(dataLayout);
 		formatted_raw_ostream fos(outputFile->os());
 		targetMachine->addPassesToEmitFile(passManager, fos, outputFileType);
 		passManager.run(module);
@@ -219,30 +226,36 @@ int main(int argc, char **argv) {
 }
 
 void initGlobals() {
+	dataLayout = new DataLayout(&module);
+
 	ptrType = builder.getInt8PtrTy();
 	ptrptrType = PointerType::get(ptrType, 0);
 	int64Type = builder.getInt64Ty();
+	int32Type = builder.getInt32Ty();
 	doubleType = builder.getDoubleTy();
 	boolType = builder.getInt1Ty();
 	voidType = builder.getVoidTy();
 
 	int64_0 = ConstantInt::getSigned(int64Type, 0);
+	int32_0 = ConstantInt::getSigned(int32Type, 0);
 	double_0 = ConstantFP::get(doubleType, 0);
 	bool_true = builder.getInt1(true);
 	bool_false = builder.getInt1(false);
 	ptr_null = GlobalValue::getNullValue(ptrType);
 
 	longClass = new ClassInfo("long", NULL, int64Type);
+	charClass = new ClassInfo("char", NULL, int32Type);
 	doubleClass = new ClassInfo("double", NULL, doubleType);
 	boolClass = new ClassInfo("bool", NULL, boolType);
 	nilClass = new ClassInfo("null", NULL, ptrType);
 	voidClass = new ClassInfo("void");
 
-	addClass(longClass);
-	addClass(doubleClass);
-	addClass(boolClass);
-	addClass(nilClass);
-	addClass(voidClass);
+	globalContext.addClass(longClass);
+	globalContext.addClass(charClass);
+	globalContext.addClass(doubleClass);
+	globalContext.addClass(boolClass);
+	globalContext.addClass(nilClass);
+	globalContext.addClass(voidClass);
 
 	vector<Type*> argTypes;
 	FunctionType *funcType = NULL;
@@ -261,23 +274,65 @@ void initGlobals() {
 	argTypes.push_back(ptrType);
 	funcType = FunctionType::get(ptrType, ArrayRef<Type*>(argTypes), false);
 	sysObjectAlloca = module.getOrInsertFunction("sysObjectAlloca", funcType);
+
+	argTypes.clear();
+	argTypes.push_back(ptrType);
+	argTypes.push_back(int64Type);
+	funcType = FunctionType::get(ptrType, ArrayRef<Type*>(argTypes), false);
+	sysArrayElement = module.getOrInsertFunction("sysArrayElement", funcType);
+
+	argTypes.clear();
+	argTypes.push_back(int64Type);
+	argTypes.push_back(builder.getInt8Ty());
+	argTypes.push_back(ptrType);
+	funcType = FunctionType::get(ptrType, ArrayRef<Type*>(argTypes), false);
+	sysArrayAlloca = module.getOrInsertFunction("sysArrayAlloca", funcType);
+
+	argTypes.clear();
+	argTypes.push_back(ptrType);
+	funcType = FunctionType::get(PointerType::getUnqual(int64Type),
+			ArrayRef<Type*>(argTypes), false);
+	sysArrayLength = module.getOrInsertFunction("sysArrayLength", funcType);
+
+	funcType = FunctionType::get(int64Type, false);
+	sysGetHeapSize = module.getOrInsertFunction("sysGetHeapSize", funcType);
+
+	argTypes.clear();
+	argTypes.push_back(ptrType);
+	argTypes.push_back(ptrType);
+	funcType = FunctionType::get(ptrType, ArrayRef<Type*>(argTypes), false);
+	sysDynamicCast = module.getOrInsertFunction("sysDynamicCast", funcType);
+
+	funcType = FunctionType::get(builder.getInt8Ty(), ArrayRef<Type*>(argTypes),
+			false);
+	sysInstanceOf = module.getOrInsertFunction("sysInstanceOf", funcType);
 }
 
-void createSystemFunctions(AstContext &astContext) {
+void createSystemFunctions() {
 	vector<Type*> argllvmTypes;
 	vector<ClassInfo*> argClasses;
 	vector<ClassInfo*> emptyClasses;
+	FunctionType *funcType = NULL;
+	Constant *func = NULL;
 
 	//create print long func
 	argllvmTypes.push_back(int64Type);
 	argClasses.push_back(longClass);
-	ArrayRef<Type*> printfLongArgTypesRef(argllvmTypes);
-	FunctionType *printfLongFuncType = FunctionType::get(voidType,
-			printfLongArgTypesRef, false);
-	Function *printfLongFunc =
-			static_cast<Function*>(module.getOrInsertFunction("printL",
-					printfLongFuncType));
-	FunctionInfo *printfL = new FunctionInfo("printL", printfLongFunc,
+	funcType = FunctionType::get(voidType, ArrayRef<Type*>(argllvmTypes),
+			false);
+	func = module.getOrInsertFunction("printL", funcType);
+	FunctionInfo *printfL = new FunctionInfo("printL", (Function*) func,
+			emptyClasses, argClasses);
+
+	//create print char func
+	argllvmTypes.clear();
+	argClasses.clear();
+	argllvmTypes.push_back(int32Type);
+	argClasses.push_back(charClass);
+	funcType = FunctionType::get(voidType, ArrayRef<Type*>(argllvmTypes),
+			false);
+	func = module.getOrInsertFunction("printC", funcType);
+	FunctionInfo *printfC = new FunctionInfo("printC", (Function*) func,
 			emptyClasses, argClasses);
 
 	//create print double func
@@ -285,13 +340,10 @@ void createSystemFunctions(AstContext &astContext) {
 	argClasses.clear();
 	argllvmTypes.push_back(doubleType);
 	argClasses.push_back(doubleClass);
-	ArrayRef<Type*> printfDoubleArgTypesRef(argllvmTypes);
-	FunctionType *printfDoubleFuncType = FunctionType::get(voidType,
-			printfDoubleArgTypesRef, false);
-	Function *printfDoubleFunc =
-			static_cast<Function*>(module.getOrInsertFunction("printD",
-					printfDoubleFuncType));
-	FunctionInfo *printfD = new FunctionInfo("printD", printfDoubleFunc,
+	funcType = FunctionType::get(voidType, ArrayRef<Type*>(argllvmTypes),
+			false);
+	func = module.getOrInsertFunction("printD", funcType);
+	FunctionInfo *printfD = new FunctionInfo("printD", (Function*) func,
 			emptyClasses, argClasses);
 
 	//create print bool func
@@ -299,30 +351,33 @@ void createSystemFunctions(AstContext &astContext) {
 	argClasses.clear();
 	argllvmTypes.push_back(boolType);
 	argClasses.push_back(boolClass);
-	ArrayRef<Type*> printfBoolArgTypesRef(argllvmTypes);
-	FunctionType *printfBoolFuncType = FunctionType::get(builder.getVoidTy(),
-			printfBoolArgTypesRef, false);
-	Function *printfBoolFunc =
-			static_cast<Function*>(module.getOrInsertFunction("printB",
-					printfBoolFuncType));
-	FunctionInfo *printfB = new FunctionInfo("printB", printfBoolFunc,
+	funcType = FunctionType::get(builder.getVoidTy(),
+			ArrayRef<Type*>(argllvmTypes), false);
+	func = module.getOrInsertFunction("printB", funcType);
+	FunctionInfo *printfB = new FunctionInfo("printB", (Function*) func,
 			emptyClasses, argClasses);
 
 	//create println func
 	argllvmTypes.clear();
 	argClasses.clear();
-	FunctionType *printlnFuncType = FunctionType::get(builder.getVoidTy(),
-			false);
-	Function *printlnFunc = static_cast<Function*>(module.getOrInsertFunction(
-			"println", printlnFuncType));
-	FunctionInfo *println = new FunctionInfo("println", printlnFunc,
+	funcType = FunctionType::get(builder.getVoidTy(), false);
+	func = module.getOrInsertFunction("println", funcType);
+	FunctionInfo *println = new FunctionInfo("println", (Function*) func,
 			emptyClasses, emptyClasses);
+
+	//create GetHeapSize func
 	argllvmTypes.clear();
 	argClasses.clear();
+	vector<ClassInfo*> returnClasses;
+	returnClasses.push_back(longClass);
+	FunctionInfo *GetHeapSizeF = new FunctionInfo("GetHeapSize",
+			(Function*) sysGetHeapSize, returnClasses, argClasses);
+	globalContext.addFunction(GetHeapSizeF);
 
-	addFunction(printfL);
-	addFunction(printfD);
-	addFunction(printfB);
-	addFunction(println);
+	globalContext.addFunction(printfL);
+	globalContext.addFunction(printfC);
+	globalContext.addFunction(printfD);
+	globalContext.addFunction(printfB);
+	globalContext.addFunction(println);
 }
 

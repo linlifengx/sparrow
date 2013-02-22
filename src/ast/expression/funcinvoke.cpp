@@ -6,7 +6,7 @@ vector<AValue> FuncInvoke::multiCodeGen(AstContext &astContext) {
 	AFunction funcV;
 	unsigned isMethod = expr == NULL ? 0 : 1;
 	if (isConstructor) {
-		ClassInfo *clazz = getClass(funcName);
+		ClassInfo *clazz = globalContext.getClass(funcName);
 		if (clazz == NULL) {
 			throwError(this);
 		}
@@ -49,10 +49,8 @@ vector<AValue> FuncInvoke::multiCodeGen(AstContext &astContext) {
 		argllvmValues.push_back(object.llvmValue);
 	}
 	for (unsigned i = 0; i < exprList.size(); i++) {
+		exprList[i]->expectedType = argClasses[i + isMethod];
 		AValue v = exprList[i]->codeGen(astContext);
-		if (!v.castTo(argClasses[i + isMethod])) {
-			throwError(exprList[i]);
-		}
 		argValues.push_back(v);
 		argllvmValues.push_back(v.llvmValue);
 	}
@@ -84,7 +82,7 @@ vector<AValue> FuncInvoke::multiCodeGen(AstContext &astContext) {
 	return resultValues;
 }
 
-AValue FuncInvoke::codeGen(AstContext &astContext) {
+AValue FuncInvoke::gen(AstContext &astContext) {
 	vector<AValue> resultValues = multiCodeGen(astContext);
 	return resultValues[0];
 }

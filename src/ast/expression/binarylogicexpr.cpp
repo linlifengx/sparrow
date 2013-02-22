@@ -1,14 +1,13 @@
 #include "expression.h"
 #include "statement.h"
+#include "support.h"
 #include "parser.hpp"
 
-AValue BinaryLogicExpr::codeGen(AstContext &astContext) {
+AValue BinaryLogicExpr::gen(AstContext &astContext) {
 	Function *currentFunc = astContext.currentFunc->llvmFunction;
 	Value *res = createAlloca(boolType, astContext.allocBB);
+	leftExpr->expectedType = boolClass;
 	AValue lv = leftExpr->codeGen(astContext);
-	if (!lv.castTo(boolClass)) {
-		throwError(leftExpr);
-	}
 	builder.CreateStore(lv.llvmValue, res);
 	BasicBlock *rexprBB = BasicBlock::Create(context, "", currentFunc);
 	BasicBlock *endBB = BasicBlock::Create(context, "");
@@ -19,10 +18,8 @@ AValue BinaryLogicExpr::codeGen(AstContext &astContext) {
 	}
 
 	builder.SetInsertPoint(rexprBB);
+	rightExpr->expectedType = boolClass;
 	AValue rv = rightExpr->codeGen(astContext);
-	if (!rv.castTo(boolClass)) {
-		throwError(rightExpr);
-	}
 	builder.CreateStore(rv.llvmValue, res);
 	builder.CreateBr(endBB);
 

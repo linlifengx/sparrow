@@ -1,9 +1,5 @@
 %{
-#include <iostream>
-#include <string>
-#include <vector>
 #include <stdio.h>
-#include "node.h"
 #include "statement.h"
 #include "expression.h"
 #include "parser.hpp"
@@ -50,67 +46,87 @@ void setLocation(Node *node,YYLTYPE *loc){
 	}
 }
 
+void setNodeLocation(Node *node,YYLTYPE *loc){
+	node->firstLine = loc->first_line;
+	node->firstColumn = loc->first_line;
+	node->lastLine = loc->last_line;
+	node->lastColumn = loc->last_column;
+}
+
 %}
 %error-verbose
 %debug
 
 %union{
 	int token;
-	long long longValue;
-	double doubleValue;
 	string *str;
+
+	int64_t longValue;
+	double doubleValue;
+	int32_t wchar;
+	wstring *wstr;
+
 	Program *program;
+	TypeDecl *typeDecl;
+	SimpleVarDecl *simpleVarDecl;
+	StmtBlock *stmtBlock;	
+
+	Statement* stmt;
 	VarDef *varDef;
 	VarInit *varInit;
 	FuncDef *funcDef;
 	FuncDecl *funcDecl;
-	SimpleVarDecl *simpleVarDecl;
-	Statement* stmt;
 	SimpleStmtList *spstmtList;
-	StmtBlock *stmtBlock;	
-	Expression *expr;
 	ClassDef *classDef;
 	ClassBody *classBody;
 	Constructor *constructor;
-	IdentExpr *identExpr;
+
+	Expression *expr;
+	LeftValueExpr *leftValueExpr;
 	FuncInvoke *funcInvoke;
 	
-	vector<VarInit*> *varInitList;
+	vector<TypeDecl*> *typeDeclList;
 	vector<SimpleVarDecl*> *spvarDeclList;
-	vector<IdentExpr*> *identList;
 	vector<Statement*> *stmtList;
+	vector<VarInit*> *varInitList;
+	vector<LeftValueExpr*> *leftExprList;
 	vector<Expression*> *exprList;
-	vector<string> *strList;
 }
 
 %token <str> IDENT ERROR
 %token <longValue> LONG
 %token <doubleValue> DOUBLE
-%token <token> RETURN FOR IF ELSE BREAK AND OR EQUAL null VOID
-%token <token> NEQUAL TRUE FALSE LE GE CONTINUE CLASS NEW SUPER THIS
+%token <wchar> CHAR
+%token <wstr> STRING
+%token <token> RETURN FOR IF ELSE BREAK AND OR EQUAL null VOID BRACKETS
+%token <token> NEQUAL TRUE FALSE LE GE CONTINUE CLASS NEW SUPER THIS ISA
 
 %type <program> program def_stmt_list
+%type <typeDecl> type_decl
+%type <typeDeclList> type_decl_list
+%type <simpleVarDecl> simple_var_decl
+%type <spvarDeclList> spvar_decl_list
+%type <stmtList> stmt_list
+%type <stmtBlock> stmt_block
+
+%type <stmt> stmt simple_stmt var_assi return_stmt super_init array_assi
+%type <stmt> if_stmt for_stmt for_init for_loop
 %type <varDef> var_def
 %type <varInit> var_init
 %type <varInitList> var_init_list
 %type <funcDef> func_def
 %type <funcDecl> func_decl
-%type <simpleVarDecl> simple_var_decl
-%type <spvarDeclList> spvar_decl_list
-%type <identList> ident_list_allow_null
-%type <stmtList> stmt_list
-%type <stmt> stmt simple_stmt var_assi return_stmt super_init
-%type <stmt> if_stmt for_stmt for_init for_loop
 %type <spstmtList> simple_stmt_list
-%type <stmtBlock> stmt_block if_block
-%type <expr> for_cond expr numeric bool new_object
 %type <classDef> class_def
 %type <classBody> class_body class_stmt_list
 %type <constructor> constructor
-%type <identExpr> ident_expr
-%type <exprList> expr_list
+
+%type <expr> for_cond expr numeric bool new_object
+%type <expr> new_array array_init dynamic_cast instance_of
+%type <exprList> expr_list expr_list_allow_null
+%type <leftValueExpr> ident_expr array_element left_expr
+%type <leftExprList> left_expr_list_allow_null
 %type <funcInvoke> func_invoke
-%type <strList> ident_list
 
 %left OR
 %left AND
@@ -120,17 +136,22 @@ void setLocation(Node *node,YYLTYPE *loc){
 %left '*' '/'
 %nonassoc UMINUS
 %nonassoc LOGICNOT
-%nonassoc DOT
+%left ISA
+%nonassoc DYNAMICCAST
+%left '.'
 
 %start program
 
 %%
+
+/************************** node ***************************/
 program:
 	def_stmt_list {
 		$$ = $1;
 		setLocation($$,&@$,&@1,&@1);
 		program = $1;
 	};
+
 def_stmt_list:
 	/*blank*/ {
 		$$ = new Program();
@@ -166,76 +187,26 @@ def_stmt_list:
 		$$ = $1;
 		setLocation(NULL,&@$,&@1,&@2);
 	};
-var_def:
-	IDENT var_init_list {
-		$$ = new VarDef(*$1,*$2);
-		setLocation($$,&@$,&@1,&@2);
-		delete $1;
-		delete $2;
-	};
-var_init:
-	IDENT {
-		$$ = new VarInit(*$1,NULL);
-		setLocation($$,&@$,&@1,&@1);
-		delete $1;
+stmt_list:
+	/*blank*/ {
+		$$ = new vector<Statement*>();
+		setLocation(NULL,&@$);
 	}
-	|IDENT '=' expr {
-		$$ = new VarInit(*$1,$3);
-		setLocation($$,&@$,&@1,&@3);
-		delete $1;
-	};
-var_init_list:
-	var_init {
-		$$ = new vector<VarInit*>();
+	|stmt {
+		$$ = new vector<Statement*>();
 		$$->push_back($1);
 		setLocation(NULL,&@$,&@1,&@1);
 	}
-	|var_init_list ',' var_init {
-		$1->push_back($3);
+	|stmt_list stmt {
+		$1->push_back($2);
 		$$ = $1;
-		setLocation(NULL,&@$,&@1,&@3);
-	};
-func_def:
-	func_decl stmt_block {
-		$$ = new FuncDef($1,$2);
 		setLocation(NULL,&@$,&@1,&@2);
 	};
-func_decl:
-	IDENT IDENT '(' spvar_decl_list ')' {
-		vector<string> retTypes;
-		retTypes.push_back(*$1);
-		$$ = new FuncDecl(retTypes,*$2,*$4);
-		setLocation($$,&@$,&@1,&@5);
-		delete $1;
-		delete $2;
-		delete $4;
-	}
-	|VOID IDENT '(' spvar_decl_list ')' {
-		vector<string> retTypes;
-		$$ = new FuncDecl(retTypes,*$2,*$4);
-		setLocation($$,&@$,&@1,&@5);
-		delete $2;
-		delete $4;
-	}
-	|ident_list IDENT '(' spvar_decl_list ')' {
-		$$ = new FuncDecl(*$1,*$2,*$4);
-		setLocation($$,&@$,&@1,&@5);
-		delete $1;
-		delete $2;
-		delete $4;
-	}
-	|'[' spvar_decl_list ']' IDENT '(' spvar_decl_list ')' {
-		$$ = new FuncDecl(*$2,*$4,*$6);
-		setLocation($$,&@$,&@1,&@7);
-		delete $2;
-		delete $4;
-		delete $6;
-	};
+
 simple_var_decl:
-	IDENT IDENT {
-		$$ = new SimpleVarDecl(*$1,*$2);
+	type_decl IDENT {
+		$$ = new SimpleVarDecl($1,*$2);
 		setLocation($$,&@$,&@1,&@2);
-		delete $1;
 		delete $2;
 	};
 spvar_decl_list:
@@ -252,196 +223,66 @@ spvar_decl_list:
 		$$ = $1; 
 		setLocation(NULL,&@$,&@1,&@3);
 	};
-ident_list:
+
+type_decl:
 	IDENT {
-		$$ = new vector<string>();
-		$$->push_back(*$1);
-		setLocation(NULL,&@$,&@1,&@1);
+		$$ = new TypeDecl(*$1);
+		setLocation($$,&@$,&@1,&@1);
 		delete $1;
 	}
-	|ident_list ',' IDENT {
-		$1->push_back(*$3);
+	|type_decl BRACKETS {
 		$$ = $1;
-		setLocation(NULL,&@$,&@1,&@3);
-		delete $3;
+		$$->dimension++;
+		setLocation($$,&@$,&@1,&@2);
 	};
-stmt_list:
-	/*blank*/ {
-		$$ = new vector<Statement*>();
-		setLocation(NULL,&@$);
-	}
-	|stmt {
-		$$=new vector<Statement*>();
+type_decl_list:
+	type_decl {
+		$$ = new vector<TypeDecl*>();
 		$$->push_back($1);
 		setLocation(NULL,&@$,&@1,&@1);
 	}
-	|stmt_list stmt {
-		$1->push_back($2);
+	|type_decl_list ',' type_decl {
 		$$ = $1;
+		$$->push_back($3);
+		setLocation(NULL,&@$,&@1,&@3);
+	};
+
+func_def:
+	func_decl stmt_block {
+		$$ = new FuncDef($1,$2);
 		setLocation(NULL,&@$,&@1,&@2);
 	};
-stmt:
-	';' {
-		$$ = new NullStmt();
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|var_def ';' {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@2);
-	}
-	|simple_stmt_list ';' {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@2);
-	}
-	|for_stmt {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|if_stmt {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|return_stmt ';' {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@2);
-	}
-	|BREAK ';' {
-		$$ = new BreakStmt();
-		setLocation($$,&@$,&@1,&@2);
-	}
-	|CONTINUE ';' {
-		$$ = new ContinueStmt();
-		setLocation($$,&@$,&@1,&@2);
-	}
-	|super_init ';' {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@2);
-	};
-var_assi:
-	ident_expr '=' expr {
-		$$ = new VarAssi($1,$3);
-		setLocation($$,&@$,&@1,&@3);
-	}
-	|'[' ident_list_allow_null ']' '=' func_invoke {
-		$$ = new MultiVarAssi(*$2,$5);
+func_decl:
+	type_decl IDENT '(' spvar_decl_list ')' {
+		vector<TypeDecl*> retTypes;
+		retTypes.push_back($1);
+		$$ = new FuncDecl(retTypes,*$2,*$4);
 		setLocation($$,&@$,&@1,&@5);
 		delete $2;
-	};
-ident_list_allow_null:
-	/*blank*/ {
-		$$ = new vector<IdentExpr*>();
-		$$->push_back(NULL);
-		setLocation(NULL,&@$);
+		delete $4;
 	}
-	|ident_expr {
-		$$ = new vector<IdentExpr*>();
-		$$->push_back($1);
-		setLocation(NULL,&@$,&@1,&@1);
+	|VOID IDENT '(' spvar_decl_list ')' {
+		vector<TypeDecl*> retTypes;
+		$$ = new FuncDecl(retTypes,*$2,*$4);
+		setLocation($$,&@$,&@1,&@5);
+		delete $2;
+		delete $4;
 	}
-	|ident_list_allow_null ',' ident_expr {
-		$1->push_back($3);
-		$$ = $1;
-		setLocation(NULL,&@$,&@1,&@3);
+	|type_decl_list IDENT '(' spvar_decl_list ')' {
+		$$ = new FuncDecl(*$1,*$2,*$4);
+		setLocation($$,&@$,&@1,&@5);
+		delete $1;
+		delete $2;
+		delete $4;
 	}
-	|ident_list_allow_null ',' {
-		$1->push_back(NULL);
-		$$ = $1;
-		setLocation(NULL,&@$,&@1,&@2);
-	};
-simple_stmt:
-	var_assi {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|expr {
-		$$ = new ExprStmt($1);
-		setLocation($$,&@$,&@1,&@1);
-	};
-simple_stmt_list:
-	simple_stmt {
-		$$ = new SimpleStmtList();
-		$$->add($1);
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|simple_stmt_list ',' simple_stmt {
-		$1->add($3);
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@3);
-	};
-if_stmt:
-	IF '(' expr ')' if_block ELSE if_block {
-		$$ = new IfElseStmt($3,$5,$7);
+	|'[' spvar_decl_list ']' IDENT '(' spvar_decl_list ')' {
+		$$ = new FuncDecl(*$2,*$4,*$6);
 		setLocation($$,&@$,&@1,&@7);
-	}
-	|IF '(' expr ')' if_block {
-		$$ = new IfElseStmt($3,$5,NULL);
-		setLocation($$,&@$,&@1,&@5);
-	};
-stmt_block:
-	'{' stmt_list '}' {
-		$$ = new StmtBlock(*$2);
-		setLocation(NULL,&@$,&@1,&@3);
 		delete $2;
+		delete $4;
+		delete $6;
 	};
-if_block:
-	stmt {
-		$$ = new StmtBlock($1);
-		setLocation(NULL,&@$,&@1,&@1);
-	}
-	|stmt_block {
-		$$ = new StmtBlock(*$1);
-		setLocation(NULL,&@$,&@1,&@1);
-		delete $1;
-	};
-for_stmt:
-	FOR '(' for_init ';' for_cond ';' for_loop ')' if_block {
-		$$ = new ForStmt($3,$5,$7,$9);
-		setLocation($$,&@$,&@1,&@9);
-	};
-for_init:
-	/*blank*/ {
-		$$ = new NullStmt();
-		setLocation($$,&@$);
-	}
-	|var_def {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	}
-	|simple_stmt_list {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	};
-for_cond:
-	/*blank*/ {
-		$$ = new Bool(true);
-		setLocation($$,&@$);
-	}
-	|expr {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	};
-for_loop:
-	/*blank*/ {
-		$$ = new NullStmt();
-		setLocation($$,&@$);
-	}
-	|simple_stmt_list {
-		$$ = $1;
-		setLocation($$,&@$,&@1,&@1);
-	};
-return_stmt:
-	RETURN expr_list {
-		$$ = new ReturnStmt(*$2);
-		setLocation($$,&@$,&@1,&@2);
-		delete $2;
-	}
-	;
-super_init:
-	SUPER '(' expr_list ')' {
-		$$ = new SuperInit(*$3);
-		setLocation($$,&@$,&@1,&@4);
-		delete $3;
-	};
+
 class_def:
 	CLASS IDENT class_body {
 		string emptyStr = "";
@@ -502,6 +343,216 @@ constructor:
 		delete $1;
 		delete $3;
 	};
+
+/*********************** statement ************************/
+var_def:
+	type_decl var_init_list {
+		$$ = new VarDef($1,*$2);
+		setLocation($$,&@$,&@1,&@2);
+		delete $2;
+	};
+var_init:
+	IDENT {
+		$$ = new VarInit(*$1,NULL);
+		setLocation($$,&@$,&@1,&@1);
+		delete $1;
+	}
+	|IDENT '=' expr {
+		$$ = new VarInit(*$1,$3);
+		setLocation($$,&@$,&@1,&@3);
+		delete $1;
+	};
+var_init_list:
+	var_init {
+		$$ = new vector<VarInit*>();
+		$$->push_back($1);
+		setLocation(NULL,&@$,&@1,&@1);
+	}
+	|var_init_list ',' var_init {
+		$1->push_back($3);
+		$$ = $1;
+		setLocation(NULL,&@$,&@1,&@3);
+	};
+
+stmt:
+	';' {
+		$$ = new NullStmt();
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|var_def ';' {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|simple_stmt_list ';' {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|for_stmt {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|if_stmt {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|return_stmt ';' {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|BREAK ';' {
+		$$ = new BreakStmt();
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|CONTINUE ';' {
+		$$ = new ContinueStmt();
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|super_init ';' {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@2);
+	}
+	|stmt_block {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	};
+stmt_block:
+	'{' stmt_list '}' {
+		$$ = new StmtBlock(*$2);
+		setLocation(NULL,&@$,&@1,&@3);
+		delete $2;
+	};
+
+var_assi:
+	left_expr '=' expr {
+		$$ = new VarAssi($1,$3);
+		setLocation($$,&@$,&@1,&@3);
+	}
+	|'[' left_expr_list_allow_null ']' '=' func_invoke {
+		$$ = new MultiVarAssi(*$2,$5);
+		setLocation($$,&@$,&@1,&@5);
+		delete $2;
+	};
+array_assi:
+	left_expr '=' '[' expr_list_allow_null ']' {
+		$$ = new ArrayAssi($1,*$4);
+		setLocation($$,&@$,&@1,&@5);
+		delete $4;
+	};
+
+simple_stmt:
+	var_assi {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|array_assi {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|expr {
+		$$ = new ExprStmt($1);
+		setLocation($$,&@$,&@1,&@1);
+	};
+simple_stmt_list:
+	simple_stmt {
+		$$ = new SimpleStmtList();
+		$$->add($1);
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|simple_stmt_list ',' simple_stmt {
+		$1->add($3);
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@3);
+	};
+
+if_stmt:
+	IF '(' expr ')' stmt ELSE stmt {
+		$$ = new IfElseStmt($3,$5,$7);
+		setLocation($$,&@$,&@1,&@7);
+	}
+	|IF '(' expr ')' stmt {
+		$$ = new IfElseStmt($3,$5,NULL);
+		setLocation($$,&@$,&@1,&@5);
+	};
+
+for_stmt:
+	FOR '(' for_init ';' for_cond ';' for_loop ')' stmt {
+		$$ = new ForStmt($3,$5,$7,$9);
+		setLocation($$,&@$,&@1,&@9);
+	};
+for_init:
+	/*blank*/ {
+		$$ = new NullStmt();
+		setLocation($$,&@$);
+	}
+	|var_def {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|simple_stmt_list {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	};
+for_cond:
+	/*blank*/ {
+		$$ = new Bool(true);
+		setLocation($$,&@$);
+	}
+	|expr {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	};
+for_loop:
+	/*blank*/ {
+		$$ = new NullStmt();
+		setLocation($$,&@$);
+	}
+	|simple_stmt_list {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	};
+
+return_stmt:
+	RETURN expr_list {
+		$$ = new ReturnStmt(*$2);
+		setLocation($$,&@$,&@1,&@2);
+		delete $2;
+	};
+
+super_init:
+	SUPER '(' expr_list ')' {
+		$$ = new SuperInit(*$3);
+		setLocation($$,&@$,&@1,&@4);
+		delete $3;
+	};
+
+/*********************** expression ************************/
+left_expr_list_allow_null:
+	/*blank*/ {
+		$$ = new vector<LeftValueExpr*>();
+		setLocation(NULL,&@$);
+	}
+	|left_expr {
+		$$ = new vector<LeftValueExpr*>();
+		$$->push_back($1);
+		setLocation(NULL,&@$,&@1,&@1);
+	}
+	|left_expr_list_allow_null ',' left_expr {
+		if($1->size() == 0){
+			$1->push_back(NULL);
+		}
+		$1->push_back($3);
+		$$ = $1;
+		setLocation(NULL,&@$,&@1,&@3);
+	}
+	|left_expr_list_allow_null ',' {
+		if($1->size() == 0){
+			$1->push_back(NULL);
+		}
+		$1->push_back(NULL);
+		$$ = $1;
+		setLocation(NULL,&@$,&@1,&@2);
+	};
+
 expr:
 	expr '+' expr {
 		$$ = new BinaryOpExpr($1,'+',$3);
@@ -555,6 +606,11 @@ expr:
 		$$ = $2;
 		setLocation($$,&@$,&@1,&@3);
 	}
+	|'(' IDENT ')' {
+		$$ = new IdentExpr(NULL,*$2);
+		setLocation($$,&@$,&@1,&@3);
+		delete $2;
+	}
 	|'-' expr %prec UMINUS {
 		$$ = new PrefixOpExpr('-',$2);
 		setLocation($$,&@$,&@1,&@2);
@@ -563,7 +619,7 @@ expr:
 		$$ = new PrefixOpExpr('!',$2);
 		setLocation($$,&@$,&@1,&@2);
 	}
-	|ident_expr {
+	|left_expr {
 		$$ = $1;
 		setLocation($$,&@$,&@1,&@1);
 	}
@@ -594,18 +650,56 @@ expr:
 	|null {
 		$$ = new Nil();
 		setLocation($$,&@$,&@1,&@1);
+	}
+	|new_array {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|STRING {
+		$$ = new String($1);
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|array_init {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|dynamic_cast {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|instance_of {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
 	};
+
+left_expr:
+	ident_expr {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	}
+	|array_element {
+		$$ = $1;
+		setLocation($$,&@$,&@1,&@1);
+	};
+
 ident_expr:
 	IDENT {
 		$$ = new IdentExpr(NULL,*$1);
 		setLocation($$,&@$,&@1,&@1);
 		delete $1;
 	}
-	|expr '.' IDENT %prec DOT {
+	|expr '.' IDENT {
 		$$ = new IdentExpr($1,*$3);
 		setLocation($$,&@$,&@1,&@3);
 		delete $3;
 	};
+
+array_element:
+	expr '[' expr ']' {
+		$$ = new ArrayElement($1,$3);
+		setLocation($$,&@$,&@1,&@4);
+	};
+	
 numeric:
 	LONG {
 		$$ = new Long($1);
@@ -614,7 +708,12 @@ numeric:
 	|DOUBLE {
 		$$ = new Double($1);
 		setLocation($$,&@$,&@1,&@1);
+	}
+	|CHAR {
+		$$ = new Char($1);
+		setLocation($$,&@$,&@1,&@1);
 	};
+
 bool:
 	TRUE {
 		$$ = new Bool(true);
@@ -624,6 +723,7 @@ bool:
 		$$ = new Bool(false);
 		setLocation($$,&@$,&@1,&@1);
 	};
+
 expr_list:
 	/*blank*/ {
 		$$ = new vector<Expression*>();
@@ -639,6 +739,33 @@ expr_list:
 		$$ = $1;
 		setLocation(NULL,&@$,&@1,&@3);
 	};
+expr_list_allow_null:
+	/*blank*/ {
+		$$ = new vector<Expression*>();
+		setLocation(NULL,&@$);
+	}
+	|expr {
+		$$ = new vector<Expression*>();
+		$$->push_back($1);
+		setLocation(NULL,&@$,&@1,&@1);
+	}
+	|expr_list_allow_null ',' expr {
+		if($1->size() == 0){
+			$1->push_back(NULL);
+		}
+		$1->push_back($3);
+		$$ = $1;
+		setLocation(NULL,&@$,&@1,&@3);
+	}
+	|expr_list_allow_null ',' {
+		if($1->size() == 0){
+			$1->push_back(NULL);
+		}
+		$1->push_back(NULL);
+		$$ =$1;
+		setLocation(NULL,&@$,&@1,&@2);
+	};
+
 func_invoke:
 	IDENT '(' expr_list ')' {
 		$$ = new FuncInvoke(NULL,*$1,*$3);
@@ -646,17 +773,50 @@ func_invoke:
 		delete $1;
 		delete $3;
 	}
-	|expr '.' IDENT '(' expr_list ')'  %prec DOT {
+	|expr '.' IDENT '(' expr_list ')' {
 		$$ = new FuncInvoke($1,*$3,*$5);
 		setLocation($$,&@$,&@1,&@6);
 		delete $3;
 		delete $5;
 	};
+
 new_object:
 	NEW IDENT '(' expr_list ')' {
 		$$ = new FuncInvoke(NULL,*$2,*$4,true);
 		setLocation($$,&@$,&@1,&@5);
 		delete $2;
 		delete $4;
+	};
+
+new_array:
+	NEW type_decl '[' expr ']' {
+		$$ = new NewArray($2,$4);
+		setLocation($$,&@$,&@1,&@5);
+	};
+
+array_init:
+	'{' expr_list '}' {
+		$$ = new ArrayInit(*$2);
+		setLocation($$,&@$,&@1,&@3);
+		delete $2;
+	};
+
+dynamic_cast:
+	'(' IDENT ')' expr  %prec DYNAMICCAST {
+		TypeDecl *typeDecl = new TypeDecl(*$2);
+		setNodeLocation(typeDecl,&@2);
+		$$ = new DynamicCast(typeDecl,$4);
+		setLocation($$,&@$,&@1,&@4);
+		delete $2;
+	}
+	|'(' type_decl ')' expr %prec DYNAMICCAST {
+		$$ = new DynamicCast($2,$4);
+		setLocation($$,&@$,&@1,&@4);
+	};
+
+instance_of:
+	expr ISA type_decl %prec INSTANCEOF {
+		$$ = new InstanceOf($1,$3);
+		setLocation($$,&@$,&@1,&@3);
 	};
 %%

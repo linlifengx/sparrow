@@ -6,12 +6,13 @@ sources=src/main.cpp \
 	src/ast/expression/funcinvoke.cpp \
 	src/ast/expression/identexpr.cpp \
 	src/ast/expression/simpleexpr.cpp \
+	src/ast/expression/array.cpp \
 	src/ast/node/program.cpp \
+	src/ast/node/classdef.cpp \
+	src/ast/node/funcdef.cpp \
+	src/ast/node/constructor.cpp \
 	src/ast/statement/vardef.cpp \
-	src/ast/statement/classdef.cpp \
-	src/ast/statement/constructor.cpp \
 	src/ast/statement/forstmt.cpp \
-	src/ast/statement/funcdef.cpp \
 	src/ast/statement/ifstmt.cpp \
 	src/ast/statement/returnstmt.cpp \
 	src/ast/statement/simplestmt.cpp \
@@ -23,6 +24,7 @@ sources=src/main.cpp \
 	src/ast/support/support.cpp \
 
 headers=include/expression.h \
+	include/common.h \
 	include/node.h \
 	include/statement.h \
 	include/support.h \
@@ -34,11 +36,11 @@ clean:
 	rm -rf temp sprc
 
 compile_syslib:src/syslib/sysapi.c
-	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99
+	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99 -pedantic
 
 parser:src/parser/parser.y
 	mkdir temp -p
-	bison -d -o temp/parser.cpp $<
+	bison -d -o temp/parser.cpp $< -r all
 
 lex:src/parser/token.l
 	mkdir temp -p

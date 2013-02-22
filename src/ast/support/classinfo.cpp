@@ -1,4 +1,5 @@
 #include "statement.h"
+#include "support.h"
 
 ClassInfo::ClassInfo(string name, ClassDef *classDef, Type *llvmType) {
 	this->name = name;
@@ -10,6 +11,8 @@ ClassInfo::ClassInfo(string name, ClassDef *classDef, Type *llvmType) {
 	superClassInfo = NULL;
 	initor = NULL;
 	constructor = NULL;
+	arrayClassInfo = NULL;
+	originClassInfo = NULL;
 
 	if (classDef != NULL) {
 		classDef->classInfo = this;
@@ -110,6 +113,8 @@ ClassInfo* ClassInfo::getFieldClass(string& fieldName) {
 Constant* ClassInfo::getInitial() {
 	if (llvmType == int64Type) {
 		return int64_0;
+	} else if (llvmType == int32Type) {
+		return int32_0;
 	} else if (llvmType == doubleType) {
 		return double_0;
 	} else if (llvmType == boolType) {
@@ -117,7 +122,7 @@ Constant* ClassInfo::getInitial() {
 	} else if (llvmType == ptrType) {
 		return ptr_null;
 	} else {
-		errorMsg = "can't init void type";
+		errorMsg = "can't init a var of " + name + " class";
 		return NULL;
 	}
 }
@@ -132,4 +137,38 @@ FunctionInfo* ClassInfo::getMethod(string& methodName) {
 				+ "'";
 	}
 	return method;
+}
+
+ClassInfo* ClassInfo::getArrayClass() {
+	if (arrayClassInfo != NULL) {
+		return arrayClassInfo;
+	} else {
+		arrayClassInfo = new ClassInfo(name + "[]");
+		arrayClassInfo->originClassInfo = this;
+		return arrayClassInfo;
+	}
+}
+
+bool ClassInfo::isBoolType() {
+	return this == boolClass || llvmType == boolType;
+}
+
+bool ClassInfo::isLongType() {
+	return this == longClass || llvmType == int64Type;
+}
+
+bool ClassInfo::isDoubleType() {
+	return this == doubleClass || llvmType == doubleType;
+}
+
+bool ClassInfo::isArrayType() {
+	return originClassInfo != NULL;
+}
+
+bool ClassInfo::isObjectType() {
+	return originClassInfo == NULL && llvmType == ptrType;
+}
+
+bool ClassInfo::isCharType() {
+	return this == charClass || llvmType == int32Type;
 }

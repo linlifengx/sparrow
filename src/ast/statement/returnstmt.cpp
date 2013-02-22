@@ -1,5 +1,6 @@
 #include "statement.h"
 #include "expression.h"
+#include "support.h"
 
 void ReturnStmt::codeGen(AstContext &astContext) {
 	FunctionInfo *currentFunc = astContext.currentFunc;
@@ -15,12 +16,10 @@ void ReturnStmt::codeGen(AstContext &astContext) {
 			throwError(this);
 		}
 
-		vector<Value*> &returnVars = astContext.getReturnVars();
+		vector<Value*> &returnVars = *astContext.returnVars;
 		for (unsigned i = 0; i < exprList.size(); i++) {
+			exprList[i]->expectedType = returnClasses[i];
 			AValue v = exprList[i]->codeGen(astContext);
-			if (!v.castTo(returnClasses[i])) {
-				throwError(exprList[i]);
-			}
 			builder.CreateStore(v.llvmValue, returnVars[i]);
 		}
 		if (returnClasses.size() == 0) {

@@ -1,10 +1,7 @@
-#include <iostream>
-
-#include <llvm/Constant.h>
-#include <llvm/IRBuilder.h>
 #include <llvm/GlobalVariable.h>
 
 #include "statement.h"
+#include "support.h"
 
 using namespace llvm;
 
@@ -14,7 +11,7 @@ void ClassDef::declGen() {
 	vector<Constant*> fieldNameStrs;
 	for (unsigned i = 0; i < body->fieldDefs.size(); i++) {
 		VarDef *fieldDef = body->fieldDefs[i];
-		ClassInfo *fieldClass = getClass(fieldDef->typeName);
+		ClassInfo *fieldClass = fieldDef->typeDecl->getClassInfo();
 		if (fieldClass == NULL) {
 			throwError(fieldDef);
 		}
@@ -124,12 +121,12 @@ void ClassDef::declGen() {
 	}
 }
 
-void ClassDef::codeGen(AstContext &astContext) {
+void ClassDef::codeGen() {
 	for (unsigned i = 0; i < body->methodDefs.size(); i++) {
-		body->methodDefs[i]->codeGen(astContext);
+		body->methodDefs[i]->codeGen();
 	}
 	for (unsigned i = 0; i < body->constructors.size(); i++) {
-		body->constructors[i]->codeGen(astContext);
+		body->constructors[i]->codeGen();
 	}
 
 	// default constructor gen
@@ -161,20 +158,20 @@ void ClassDef::codeGen(AstContext &astContext) {
 	}
 
 	//initor gen
-	AstContext newContext(&astContext);
+	AstContext astContext;
 	builder.SetInsertPoint(
 			BasicBlock::Create(context, "entry", classInfo->initor));
 	unsigned i = 0;
 	Function::arg_iterator ai = classInfo->initor->arg_begin();
-	ClassContext *classContext = new ClassContext(classInfo, NULL, ai);
+	ClassContext classContext(classInfo, NULL, ai);
 	if (classInfo->superClassInfo != NULL) {
 		ai++;
-		classContext->superObject = ai;
+		classContext.superObject = ai;
 	}
-	newContext.classContext = classContext;
+	astContext.classContext = &classContext;
 
 	for (unsigned i = 0; i < body->fieldDefs.size(); i++) {
-		body->fieldDefs[i]->fieldGen(newContext);
+		body->fieldDefs[i]->fieldGen(astContext);
 	}
 	builder.CreateRetVoid();
 }

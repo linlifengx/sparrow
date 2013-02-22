@@ -35,7 +35,8 @@ void ContinueStmt::codeGen(AstContext &astContext) {
 }
 
 void StmtBlock::codeGen(AstContext &astContext) {
+	AstContext newContext(&astContext);
 	for (unsigned i = 0; i < statements.size(); i++) {
-		statements[i]->codeGen(astContext);
+		statements[i]->codeGen(newContext);
 	}
 }
