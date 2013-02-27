@@ -6,36 +6,19 @@ compile_dir(){
 	cd $1
 	sources=$(find . -name "*.sp")
 	for source in $sources; do
-		target=$(basename $source .sp)
-		$base_path/sprc -o $target.o $source
+		subdir=$(dirname $source)
+		progam=$(basename $source .sp)
+		$base_path/sprc -o $subdir/$progam $source
 		if [ $? -ne 0 ]; then
 			exit 1
-		fi
-		gcc -o $target $target.o $base_path/lib/sysapi.o $base_path/gc/lib/libgc.a
-		if [ $? -ne 0 ]; then
-			if [ -e $target.o ]; then
-				rm $target.o
-			fi
-			exit 1
-		else
-			if [ -e $target.o ]; then
-				rm $target.o
-			fi
 		fi
 	done
 }
 
 compile_file(){
 	source=$1
-	target=$(basename $source .sp)
-	$base_path/sprc -o $target.o $source
-	if [ $? -ne 0 ]; then
-		exit 1
-	fi
-	gcc -o $target $target.o $base_path/lib/sysapi.o $base_path/gc/lib/libgc.a
-	if [ -e $target.o ]; then
-		rm $target.o
-	fi
+	progam=$(basename $source .sp)
+	$base_path/sprc -o $progam $source
 }
 
 ############################### main #################################

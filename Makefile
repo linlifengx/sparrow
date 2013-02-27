@@ -30,13 +30,13 @@ headers=include/expression.h \
 	include/support.h \
 	temp/parser.hpp
 
-all:parser lex compile
+all:compile_syslib parser lex compile compile_syslib
 
 clean:
 	rm -rf temp sprc
 
 compile_syslib:src/syslib/sysapi.c
-	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99 -pedantic
+	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99
 
 parser:src/parser/parser.y
 	mkdir temp -p

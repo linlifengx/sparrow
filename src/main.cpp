@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <libgen.h>
 
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
 	bool irOutput = false;
 	bool asmOutput = false;
 	bool objOutput = false;
+	bool execOutput = false;
 	TargetMachine::CodeGenFileType outputFileType = TargetMachine::CGFT_Null;
 	char *outputFileName = NULL;
 	int option;
@@ -114,9 +116,11 @@ int main(int argc, char **argv) {
 			cout << "warning: ignoring '-c' because '-s' has set" << endl;
 		}
 		outputFileType = TargetMachine::CGFT_AssemblyFile;
+	} else if (objOutput) {
+		outputFileType = TargetMachine::CGFT_ObjectFile;
 	} else {
 		outputFileType = TargetMachine::CGFT_ObjectFile;
-		objOutput = true;
+		execOutput = true;
 	}
 
 	char *inputFileName = NULL;
@@ -157,8 +161,8 @@ int main(int argc, char **argv) {
 	InitializeAllAsmPrinters();
 	InitializeAllAsmParsers();
 
+	string opFileName;
 	if (irOutput) {
-		string opFileName;
 		if (outputFileName == NULL) {
 			if (inputFileName == NULL) {
 				opFileName = "temp.ir";
@@ -189,7 +193,6 @@ int main(int argc, char **argv) {
 				sys::getDefaultTargetTriple(), sys::getHostCPUName(), "",
 				targetOptions);
 
-		string opFileName;
 		if (outputFileName == NULL) {
 			if (inputFileName == NULL) {
 				if (asmOutput) {
@@ -204,24 +207,42 @@ int main(int argc, char **argv) {
 					opFileName = string(basename(inputFileName)) + ".o";
 				}
 			}
+		} else if (execOutput) {
+			opFileName = string(outputFileName) + ".o";
 		} else {
 			opFileName = outputFileName;
 		}
 		string errorStr2;
-		tool_output_file *outputFile = new tool_output_file(opFileName.c_str(),
-				errorStr2);
+		tool_output_file outputFile(opFileName.c_str(), errorStr2);
 		if (!errorStr2.empty()) {
 			cout << errorStr2 << endl;
 			return 1;
 		}
 		PassManager passManager;
 		passManager.add(dataLayout);
-		formatted_raw_ostream fos(outputFile->os());
+		formatted_raw_ostream fos(outputFile.os());
 		targetMachine->addPassesToEmitFile(passManager, fos, outputFileType);
 		passManager.run(module);
-		outputFile->keep();
+		outputFile.keep();
 	}
-
+	if (execOutput) {
+		string sysapi = string(dirname(argv[0])) + "/lib/sysapi.o ";
+		string gclib = string(argv[0]) + "/gc/lib/libgc.a ";
+		if (outputFileName == NULL) {
+			outputFileName = "a.out";
+		}
+		/*string command = "ld /usr/lib/crt1.o /usr/lib/crti.o /usr/lib/crtn.o "
+		 + sysapi + gclib
+		 + " /usr/lib/gcc/i486-linux-gnu/4.4.3/libgcc.a " + opFileName
+		 + " -o " + outputFileName
+		 + " -lc -dynamic-linker /lib/ld-linux.so.2";*/
+		string command = "gcc " + sysapi + gclib + opFileName + " -o "
+				+ outputFileName;
+		int status = system(command.c_str());
+		command = "rm " + opFileName;
+		system(command.c_str());
+		return status;
+	}
 	return 0;
 }
 
