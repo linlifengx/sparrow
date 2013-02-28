@@ -33,7 +33,6 @@ extern Constant *bool_true;
 extern Constant *bool_false;
 extern Constant *ptr_null;
 
-extern Constant *sysGCinit;
 extern Constant *sysObjectField;
 extern Constant *sysObjectMethod;
 extern Constant *sysObjectAlloca;

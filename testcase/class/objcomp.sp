@@ -8,7 +8,7 @@ class B {
 	double x;
 }
 
-void main(){
+long main(char[][] args){
 	A a;
 	B b;
 	printB(a == null);println(); // true

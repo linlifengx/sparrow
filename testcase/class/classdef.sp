@@ -15,7 +15,7 @@ class A{
 	}
 }
 
-void main(){
+long main(char[][] args){
 	A a = new A(77,88);
 	long x,y;
 	[x,y] = a.fields();

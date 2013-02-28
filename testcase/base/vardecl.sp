@@ -1,7 +1,7 @@
 long b,b1=-0,b2=-100;
 double pi=3.14;
 
-void main(){
+long main(char[][] args){
 	printL(b);println(); //0
 	printL(b1);println(); //0
 	printL(b2);println(); //-100

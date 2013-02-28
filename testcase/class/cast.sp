@@ -29,7 +29,7 @@ class B : A {
 	long y;
 }
 
-void main(){
+long main(char[][] args){
 	long a = (double)98;
 	char b = (char) a;
 	printlnL(a); // 98

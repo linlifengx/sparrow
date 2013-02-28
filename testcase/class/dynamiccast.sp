@@ -23,7 +23,7 @@ void test(A a){
 	}
 }
 
-void main(){
+long main(char[][] args){
 	test(new B());
 	test(new C());
 	

@@ -32,7 +32,7 @@ class B{
 	}
 }
 
-void main(){
+long main(char[][] args){
 	printL(a);println(); // global a 911
 	A a = new A();
 }

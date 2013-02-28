@@ -39,22 +39,25 @@ void Program::codeGen() {
 	}
 
 	// create main func and global var gen
-	FunctionType *mainFuncType = FunctionType::get(builder.getVoidTy(), false);
-	mainFunc = Function::Create(mainFuncType, Function::ExternalLinkage, "main",
-			&module);
+	vector<Type*> mainArgs;
+	mainArgs.push_back(ptrType);
+	FunctionType *mainFuncType = FunctionType::get(int64Type,
+			ArrayRef<Type*>(mainArgs), false);
+	mainFunc = Function::Create(mainFuncType, Function::ExternalLinkage,
+			"start_program", &module);
 	builder.SetInsertPoint(BasicBlock::Create(context, "entry", mainFunc));
-	builder.CreateCall(sysGCinit);
 	for (unsigned i = 0; i < varDefs.size(); i++) {
 		varDefs[i]->globalGen();
 	}
 	string mainStr = "main";
 	AFunction mainF = globalContext.getFunctionV(mainStr);
-	if (mainF.llvmFunc == NULL) {
+	Function *mainf = (Function*) mainF.llvmFunc;
+	if (mainf == NULL) {
 		cout << errorMsg << endl;
+		builder.CreateRet(int64_0);
 	} else {
-		builder.CreateCall(mainF.llvmFunc);
+		builder.CreateRet(builder.CreateCall(mainf, mainFunc->arg_begin()));
 	}
-	builder.CreateRetVoid();
 
 	// class gen
 	for (unsigned i = 0; i < classDefs.size(); i++) {

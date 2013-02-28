@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	long a = (30+12)*5+3*4+6/(5-7)+7/3;
 	printL(a);println(); //221
 	double b = 1/2;

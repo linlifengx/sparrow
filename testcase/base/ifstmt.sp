@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	long a = 1000;
 
 	//print true

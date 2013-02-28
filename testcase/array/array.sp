@@ -1,5 +1,5 @@
 
-void main(){
+long main(char[][] args){
 	long[][] a = { {1,2,3},
 				   {3,2,1},
 				   {9,8} };
@@ -11,7 +11,7 @@ void main(){
 
 void printMatix(long[][] a){
 	if(a != null){
-		for(long i = 0; i < a.length; i = i + 1){
+		for(long i = 0; i < a.length; i++){
 			printArray(a[i]);
 		}
 	}
@@ -19,7 +19,7 @@ void printMatix(long[][] a){
 
 void printArray(long[] a){
 	if(a != null){
-		for(long i  = 0; i < a.length; i = i + 1){
+		for(long i  = 0; i < a.length; i++){
 			printL(a[i]);printC(' ');
 		}
 	}

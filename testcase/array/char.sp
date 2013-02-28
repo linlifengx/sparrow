@@ -1,5 +1,5 @@
 
-void main(){
+long main(char[][] args){
 	char ln = '\n';
 	char a = 'a';
 	char b = 'b';

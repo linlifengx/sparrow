@@ -36,7 +36,7 @@ long xxx(){
 	return a + b;
 }
 
-void main(){
+long main(char[][] args){
 	A a = new A();
 	
 	printL(a.getA());println(); // 134

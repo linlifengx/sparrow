@@ -28,7 +28,7 @@ class A{
 	}
 }
 
-void main(){
+long main(char[][] args){
 	B a = new B();
 	long x,y;
 	[x,y] = a.fields();

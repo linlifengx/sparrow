@@ -30,9 +30,9 @@ class Node {
 	}
 }
 
-void main(){
+long main(char[][] args){
 	List list = new List();
-	for(long i = 0; i < 100; i = i + 1){
+	for(long i = 0; i < 100; i++){
 		list.add(new Node(i));
 	}
 	list.print(); // 0 - 99

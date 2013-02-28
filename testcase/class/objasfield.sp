@@ -20,7 +20,7 @@ long getLong(){
 	return 100;
 }
 
-void main(){
+long main(char[][] args){
 	printD(a.z.z);println(); // 1.940520
 	printL(a.w);println(); // 100
 }

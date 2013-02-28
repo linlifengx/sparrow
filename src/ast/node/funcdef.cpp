@@ -78,6 +78,17 @@ FunctionInfo* FuncDecl::codeGen(ClassInfo *classInfo) {
 
 Function* FuncDef::declGen(ClassInfo* classInfo) {
 	functionInfo = funcDecl->codeGen(classInfo);
+	if (classInfo == NULL && funcDecl->funcName == "main") {
+		if (functionInfo->returnClasses.size() != 1
+				|| functionInfo->returnClasses[0] != longClass
+				|| functionInfo->argClasses.size() != 1
+				|| functionInfo->argClasses[0]
+						!= charClass->getArrayClass()->getArrayClass()) {
+			errorMsg =
+					"main function must be of type 'long main(char[][] args)'";
+			throwError(funcDecl);
+		}
+	}
 	return functionInfo->llvmFunction;
 }
 
@@ -94,7 +105,7 @@ void FuncDef::codeGen() {
 	astContext.allocBB = allocBB;
 	builder.SetInsertPoint(allocBB);
 	unsigned i = 0;
-	ClassContext classContext(classInfo,allocBB);
+	ClassContext classContext(classInfo, allocBB);
 	for (Function::arg_iterator ai = function->arg_begin();
 			ai != function->arg_end(); ai++, i++) {
 		if (i == 0 && isMethod) {

@@ -7,7 +7,16 @@ AValue BinaryOpExpr::gen(AstContext &astContext) {
 	AValue lv = leftExpr->codeGen(astContext);
 	AValue rv = rightExpr->codeGen(astContext);
 	AValue res;
-	if (lv.isBool() && rv.isBool()) {
+	if (op == '%') {
+		if ((lv.isLong() || lv.isChar()) && (rv.isLong() || rv.isChar())) {
+			if (lv.isLong()) {
+				rv.castTo(longClass);
+			} else {
+				lv.castTo(rv.clazz);
+			}
+			res = AValue(builder.CreateSRem(lv.llvmValue, rv.llvmValue),lv.clazz);
+		}
+	} else if (lv.isBool() && rv.isBool()) {
 		switch (op) {
 		case EQUAL:
 			res = AValue(builder.CreateICmpEQ(lv.llvmValue, rv.llvmValue),
@@ -140,3 +149,4 @@ AValue BinaryOpExpr::gen(AstContext &astContext) {
 
 	return res;
 }
+

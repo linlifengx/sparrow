@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	long a,b=x();
 	printL(a);println(); //0
 	printL(b);println(); //123

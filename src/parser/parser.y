@@ -133,7 +133,7 @@ void setNodeLocation(Node *node,YYLTYPE *loc){
 %left EQUAL NEQUAL
 %left '<' '>' LE GE
 %left '+' '-'
-%left '*' '/'
+%left '*' '/' '%'
 %nonassoc UMINUS
 %nonassoc LOGICNOT
 %left ISA
@@ -451,6 +451,14 @@ simple_stmt:
 	|expr {
 		$$ = new ExprStmt($1);
 		setLocation($$,&@$,&@1,&@1);
+	}
+	|left_expr '+' '+' {
+		$$ = new IncStmt($1);
+		setLocation($$,&@$,&@1,&@3);
+	}
+	|left_expr '-' '-' {
+		$$ = new IncStmt($1,false);
+		setLocation($$,&@$,&@1,&@3);
 	};
 simple_stmt_list:
 	simple_stmt {
@@ -562,12 +570,24 @@ expr:
 		$$ = new BinaryOpExpr($1,'-',$3);
 		setLocation($$,&@$,&@1,&@3);
 	}
+	|left_expr '+' expr {
+		$$ = new BinaryOpExpr($1,'+',$3);
+		setLocation($$,&@$,&@1,&@3);
+	}
+	|left_expr '-' expr {
+		$$ = new BinaryOpExpr($1,'-',$3);
+		setLocation($$,&@$,&@1,&@3);
+	}
 	|expr '*' expr {
 		$$ = new BinaryOpExpr($1,'*',$3);
 		setLocation($$,&@$,&@1,&@3);
 	}
 	|expr '/' expr {
 		$$ = new BinaryOpExpr($1,'/',$3);
+		setLocation($$,&@$,&@1,&@3);
+	}
+	|expr '%' expr {
+		$$ = new BinaryOpExpr($1,'%',$3);
 		setLocation($$,&@$,&@1,&@3);
 	}
 	|expr EQUAL expr {

@@ -1,5 +1,5 @@
 
-void main(){
+long main(char[][] args){
 	A a = new A();
 	printL(a.x);println(); // 1
 	printL(a.y);println(); // 2

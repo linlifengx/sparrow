@@ -40,7 +40,7 @@ class C : A{
 	}
 }
 
-void main(){
+long main(char[][] args){
 	A a = new B();
 	printL(a.i);println(); // 333
 	printL(a.j);println(); // 444

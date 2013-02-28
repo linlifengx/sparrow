@@ -117,6 +117,20 @@ public:
 	void codeGen(AstContext &astContext);
 };
 
+class IncStmt: public Statement {
+public:
+	LeftValueExpr *expr;
+	bool inc;
+
+	IncStmt(LeftValueExpr *expr, bool inc = true) {
+		this->expr = expr;
+		this->inc = inc;
+		this->type = EXPR_STMT;
+	}
+
+	void codeGen(AstContext &astContext);
+};
+
 class IfElseStmt: public Statement {
 public:
 	Expression *condExpr;

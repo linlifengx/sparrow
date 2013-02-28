@@ -1,7 +1,7 @@
 long a = 100;
 
 
-void main(){
+long main(char[][] args){
 	printL(a);println(); // 100
 	long a = 200;
 	printL(a);println(); // 200

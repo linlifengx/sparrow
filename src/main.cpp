@@ -56,7 +56,6 @@ Constant *bool_true = NULL;
 Constant *bool_false = NULL;
 Constant *ptr_null = NULL;
 
-Constant *sysGCinit = NULL;
 Constant *sysObjectField = NULL;
 Constant *sysObjectAlloca = NULL;
 Constant *sysObjectMethod = NULL;
@@ -280,9 +279,6 @@ void initGlobals() {
 
 	vector<Type*> argTypes;
 	FunctionType *funcType = NULL;
-
-	funcType = FunctionType::get(voidType, false);
-	sysGCinit = module.getOrInsertFunction("gcInit", funcType);
 
 	argTypes.push_back(ptrType);
 	argTypes.push_back(ptrType);

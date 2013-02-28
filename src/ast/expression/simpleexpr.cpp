@@ -7,7 +7,7 @@ AValue PrefixOpExpr::gen(AstContext &astContext) {
 		if (val.isDouble()) {
 			val.llvmValue = builder.CreateFNeg(val.llvmValue);
 			return val;
-		} else if (val.isLong()) {
+		} else if (val.isLong() || val.isChar()) {
 			val.llvmValue = builder.CreateNeg(val.llvmValue);
 			return val;
 		}
@@ -18,7 +18,7 @@ AValue PrefixOpExpr::gen(AstContext &astContext) {
 		}
 	}
 	errorMsg = "invalid argument type '" + val.clazz->name + "' to unary '"
-			+ getOperatorName(op) + "'expression";
+			+ getOperatorName(op) + "' expression";
 	throwError(this);
 	return val;
 }

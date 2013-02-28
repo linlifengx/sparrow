@@ -5,12 +5,12 @@ void printlnS(char[] a){
 }
 
 void printS(char[] a){
-	for(long i = 0; i < a.length; i = i + 1){
+	for(long i = 0; i < a.length; i++){
 		printC(a[i]);
 	}
 }
 
-void main(){
+long main(char[][] args){
 	char[] a = "Hello world!";
 	printS("a's length is ");printL(a.length);println(); // 12
 	printlnS(a); // Hello world!

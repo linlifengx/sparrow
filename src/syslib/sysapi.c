@@ -7,6 +7,9 @@
 #include <locale.h>
 #include "gc.h"
 
+//entry of program
+extern int64_t start_program(void *args);
+
 struct CLASS_INFO {
 	char *name;
 	struct CLASS_INFO *superClass;
@@ -20,11 +23,6 @@ typedef struct CLASS_INFO ClassInfo;
 
 static int getFieldIndex(ClassInfo *classInfo, char *fieldName);
 static void* getMethodPtr(ClassInfo *classInfo, char *methodName);
-
-void gcInit() {
-	setlocale(LC_CTYPE, "en_US.UTF-8");
-	GC_INIT();
-}
 
 void println() {
 	wprintf(L"\n");
@@ -186,4 +184,23 @@ void* sysDynamicCast(int64_t *object, ClassInfo *destClass) {
 	} else {
 		return NULL ;
 	}
+}
+
+int main(int argc, char **argv) {
+	setlocale(LC_CTYPE, "en_US.UTF-8");
+	GC_INIT();
+	void *array = sysArrayAlloca(argc, sizeof(void*), NULL );
+	for (size_t i = 0; i < argc; i++) {
+		size_t length = strlen(argv[i]);
+		void *argstr = sysArrayAlloca(length, sizeof(wchar_t), NULL );
+		for (size_t j = 0; j < length; j++) {
+			wchar_t *c = (wchar_t*) sysArrayElement(argstr, j);
+			*c = argv[i][j];
+		}
+
+		void **element = (void**) sysArrayElement(array, i);
+		*element = argstr;
+	}
+
+	return start_program(array);
 }

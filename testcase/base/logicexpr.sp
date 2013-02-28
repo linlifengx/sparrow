@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	bool x = a() && b(); //print 11111 22222
 	printB(x);println(); //print true
 	x = a() && !b(); //print 11111 22222

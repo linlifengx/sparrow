@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	printL(fib(10));println(); //55
 	printL(fib(20));println(); //6765
 	printL(fib2(10));println(); //55
@@ -29,7 +29,7 @@ long fib(long n){
 		res = 1;
 		return;
 	}
-	for(long i = 2; i <= n; i = i+1){
+	for(long i = 2; i <= n; i++){
 		res = a0 + a1;
 		a0 = a1;
 		a1 = res;
