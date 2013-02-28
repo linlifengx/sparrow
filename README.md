@@ -43,7 +43,7 @@ llvm 3.2+
 			res = 1;
 			return;
 		}
-		for(long i = 2; i <= n; i = i+1){
+		for(long i = 2; i <= n; i++){
 			res = a0 + a1;
 			a0 = a1;
 			a1 = res;
@@ -84,7 +84,7 @@ llvm 3.2+
 	
 	void main(){
 		List list = new List();
-		for(long i = 0; i < 100; i = i + 1){
+		for(long i = 0; i < 100; i++){
 			list.add(new Node(i));
 		}
 		list.print(); // 0 - 99
