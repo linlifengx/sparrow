@@ -10,7 +10,7 @@ llvm 3.2+
 ##Examples
 
 ####fibonacci.sp
-	void main(){
+	long main(char[][] args){
 		printL(fib(10));println(); //55
 		printL(fib(20));println(); //6765
 		printL(fib2(10));println(); //55
@@ -82,7 +82,7 @@ llvm 3.2+
 		}
 	}
 	
-	void main(){
+	long main(char[][] args){
 		List list = new List();
 		for(long i = 0; i < 100; i++){
 			list.add(new Node(i));

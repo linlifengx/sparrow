@@ -30,7 +30,7 @@ class Node {
 	}
 }
 
-void main(){
+long main(char[][] args){
 	List list = new List();
 	for(long i = 0; i < 100; i = i + 1){
 		list.add(new Node(i));

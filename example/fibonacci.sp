@@ -1,4 +1,4 @@
-void main(){
+long main(char[][] args){
 	printL(fib(10));println(); //55
 	printL(fib(20));println(); //6765
 	printL(fib2(10));println(); //55
