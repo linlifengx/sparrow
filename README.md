@@ -1,11 +1,26 @@
 #Sparrow
 Sparrow is a C-style toy language and implemented with [llvm](http://llvm.rog).
-It also is a object-oriented language similar to JAVA. It use Boehm GC. Program will be complied to a native executable file.
+It also is a object-oriented language similar to JAVA. It integrates Boehm GC. Program will be complied to a native executable file.
 
 ##Requirement
 flex 2.5+  
 bison 2.4+  
-llvm 3.2+
+llvm 3.2  
+os linux i386
+
+##Building
+    git clone git://github.com/linlifengx/sparrow.git
+    cd sparrow
+    make
+
+##Usage
+    ./sprc [options] file
+
+    Options:
+      -S            Compile to ir file
+      -s            Compile to asm file
+      -c            Compile to object file, but do not link
+      -o <file>     Place the output into <file>
 
 ##Examples
 
