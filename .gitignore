@@ -4,5 +4,6 @@
 #file
 ~*
 *.tmp
+*.out
 sprc
 test.sp

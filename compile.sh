@@ -8,7 +8,7 @@ compile_dir(){
 	for source in $sources; do
 		subdir=$(dirname $source)
 		progam=$(basename $source .sp)
-		$base_path/sprc -o $subdir/$progam $source
+		$base_path/sprc -o $subdir/$progam.out $source
 		if [ $? -ne 0 ]; then
 			exit 1
 		fi
@@ -18,7 +18,7 @@ compile_dir(){
 compile_file(){
 	source=$1
 	progam=$(basename $source .sp)
-	$base_path/sprc -o $progam $source
+	$base_path/sprc -o $progam.out $source
 }
 
 ############################### main #################################
