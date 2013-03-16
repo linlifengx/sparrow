@@ -49,6 +49,18 @@ void printC(wchar_t wc) {
 	wprintf(L"%lc", wc);
 }
 
+void printS(void *charArray) {
+	if (charArray == NULL ) {
+		return;
+	}
+	int64_t length = *((int64_t*) charArray);
+	if (length == 0) {
+		return;
+	}
+	void *wstr = charArray + sizeof(int64_t) + sizeof(int8_t);
+	wprintf(L"%ls", (wchar_t*) wstr);
+}
+
 // return field ptr
 void* sysObjectField(int64_t *object, char *fieldName) {
 	if (object == NULL ) {
@@ -135,13 +147,14 @@ void* sysArrayAlloca(int64_t length, int8_t width, void *inital) {
 		wprintf(L"Error in allocating array with length < 0 !\n");
 		exit(1);
 	}
-	int64_t dataSize = length * width;
-	int64_t allocaSize = sizeof(int64_t) + sizeof(int8_t) + length * width;
+	int64_t dataSize = (length + 1) * width;
+	int64_t allocaSize = sizeof(int64_t) + sizeof(int8_t) + dataSize;
 	void *object = GC_MALLOC(allocaSize);
 	*((int64_t*) object) = length;
 	*((int8_t*) (object + sizeof(int64_t))) = width;
 
 	if (inital != NULL ) {
+		memset(object + allocaSize - width, 0, width);
 		memcpy(object + sizeof(int64_t) + sizeof(int8_t), inital,
 				length * width);
 	} else if (length > 0) {
@@ -160,6 +173,10 @@ int64_t* sysArrayLength(void *arrayObject) {
 
 int64_t sysGetHeapSize() {
 	return GC_get_heap_size();
+}
+
+void sysGC() {
+	GC_gcollect();
 }
 
 int8_t sysInstanceOf(int64_t *object, ClassInfo *destClass) {

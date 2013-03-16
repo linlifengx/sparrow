@@ -39,7 +39,6 @@ extern Constant *sysObjectAlloca;
 extern Constant *sysArrayElement;
 extern Constant *sysArrayAlloca;
 extern Constant *sysArrayLength;
-extern Constant *sysGetHeapSize;
 extern Constant *sysDynamicCast;
 extern Constant *sysInstanceOf;
 extern Function *mainFunc;

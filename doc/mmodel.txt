@@ -46,7 +46,7 @@ object layout
 array layout
 ┌───────────┐
 │length     │
-│bitwidth   │
+│bytewidth  │
 │data       │
 │......     │
 └───────────┘

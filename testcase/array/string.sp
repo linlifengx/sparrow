@@ -4,12 +4,6 @@ void printlnS(char[] a){
 	println();
 }
 
-void printS(char[] a){
-	for(long i = 0; i < a.length; i++){
-		printC(a[i]);
-	}
-}
-
 long main(char[][] args){
 	char[] a = "Hello world!";
 	printS("a's length is ");printL(a.length);println(); // 12
@@ -18,6 +12,7 @@ long main(char[][] args){
 	a = "\u66fe\u7ecf\u6709\u4e00\u4efd\u771f\u631a\u7684\u7231\u60c5\u6446\u5728\u6211\u9762\u524d\uff0c";
 	printS("a's length is ");printL(a.length);println(); // 16
 	printlnS(a); // ceng jing ......
+	printlnS(a);
 	
 	char x = a[8];
 	printC(x);println(); // ai

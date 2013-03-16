@@ -62,7 +62,6 @@ Constant *sysObjectMethod = NULL;
 Constant *sysArrayElement = NULL;
 Constant *sysArrayAlloca = NULL;
 Constant *sysArrayLength = NULL;
-Constant *sysGetHeapSize = NULL;
 Constant *sysDynamicCast = NULL;
 Constant *sysInstanceOf = NULL;
 Function *mainFunc = NULL;
@@ -311,9 +310,6 @@ void initGlobals() {
 			ArrayRef<Type*>(argTypes), false);
 	sysArrayLength = module.getOrInsertFunction("sysArrayLength", funcType);
 
-	funcType = FunctionType::get(int64Type, false);
-	sysGetHeapSize = module.getOrInsertFunction("sysGetHeapSize", funcType);
-
 	argTypes.clear();
 	argTypes.push_back(ptrType);
 	argTypes.push_back(ptrType);
@@ -368,8 +364,8 @@ void createSystemFunctions() {
 	argClasses.clear();
 	argllvmTypes.push_back(boolType);
 	argClasses.push_back(boolClass);
-	funcType = FunctionType::get(builder.getVoidTy(),
-			ArrayRef<Type*>(argllvmTypes), false);
+	funcType = FunctionType::get(voidType, ArrayRef<Type*>(argllvmTypes),
+			false);
 	func = module.getOrInsertFunction("printB", funcType);
 	FunctionInfo *printfB = new FunctionInfo("printB", (Function*) func,
 			emptyClasses, argClasses);
@@ -377,24 +373,44 @@ void createSystemFunctions() {
 	//create println func
 	argllvmTypes.clear();
 	argClasses.clear();
-	funcType = FunctionType::get(builder.getVoidTy(), false);
+	funcType = FunctionType::get(voidType, false);
 	func = module.getOrInsertFunction("println", funcType);
 	FunctionInfo *println = new FunctionInfo("println", (Function*) func,
 			emptyClasses, emptyClasses);
 
-	//create GetHeapSize func
+	//create print string func
 	argllvmTypes.clear();
+	argClasses.clear();
+	argllvmTypes.push_back(charClass->getArrayClass()->llvmType);
+	argClasses.push_back(charClass->getArrayClass());
+	funcType = FunctionType::get(voidType, ArrayRef<Type*>(argllvmTypes),
+			false);
+	func = module.getOrInsertFunction("printS", funcType);
+	FunctionInfo *printfS = new FunctionInfo("printS", (Function*) func,
+			emptyClasses, argClasses);
+
+	//create GetHeapSize func
 	argClasses.clear();
 	vector<ClassInfo*> returnClasses;
 	returnClasses.push_back(longClass);
-	FunctionInfo *GetHeapSizeF = new FunctionInfo("GetHeapSize",
-			(Function*) sysGetHeapSize, returnClasses, argClasses);
-	globalContext.addFunction(GetHeapSizeF);
+	funcType = FunctionType::get(int64Type, false);
+	func = module.getOrInsertFunction("sysGetHeapSize", funcType);
+	FunctionInfo *getHeapSizeF = new FunctionInfo("GetHeapSize",
+			(Function*) func, returnClasses, argClasses);
+
+	//create gc func
+	funcType = FunctionType::get(voidType, false);
+	func = module.getOrInsertFunction("sysGC", funcType);
+	FunctionInfo *sysGCF = new FunctionInfo("GC", (Function*) func,
+			emptyClasses, emptyClasses);
 
 	globalContext.addFunction(printfL);
 	globalContext.addFunction(printfC);
 	globalContext.addFunction(printfD);
 	globalContext.addFunction(printfB);
 	globalContext.addFunction(println);
+	globalContext.addFunction(printfS);
+	globalContext.addFunction(getHeapSizeF);
+	globalContext.addFunction(sysGCF);
 }
 

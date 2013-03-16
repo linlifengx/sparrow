@@ -36,6 +36,7 @@ clean:
 	rm -rf temp sprc
 
 compile_syslib:src/syslib/sysapi.c
+	mkdir lib -p
 	gcc -c src/syslib/sysapi.c -o lib/sysapi.o -Igc/include -std=c99
 
 parser:src/parser/parser.y
