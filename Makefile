@@ -49,4 +49,4 @@ lex:src/parser/token.l
 
 compile:$(sources) $(headers)
 	g++ -o sprc $(sources) -Iinclude -Itemp `llvm-config --cxxflags \
-	--ldflags --libs core native all-targets asmparser`
+        --libs core native all-targets asmparser` `llvm-config --ldflags`

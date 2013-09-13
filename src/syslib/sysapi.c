@@ -16,12 +16,12 @@ struct CLASS_INFO {
 	char **fieldNameTable;
 	char **methodNameTable;
 	void **methodTable;
-	uint32_t fieldCount;
-	uint32_t methodCount;
+	uint64_t fieldCount;
+	uint64_t methodCount;
 };
 typedef struct CLASS_INFO ClassInfo;
 
-static int getFieldIndex(ClassInfo *classInfo, char *fieldName);
+static uint64_t getFieldIndex(ClassInfo *classInfo, char *fieldName);
 static void* getMethodPtr(ClassInfo *classInfo, char *methodName);
 
 void println() {
@@ -96,10 +96,10 @@ void* sysObjectAlloca(ClassInfo *classInfo) {
 	return data;
 }
 
-static int getFieldIndex(ClassInfo *classInfo, char *fieldName) {
+static uint64_t getFieldIndex(ClassInfo *classInfo, char *fieldName) {
 	char **fieldNameTable = classInfo->fieldNameTable;
-	uint32_t fieldCount = classInfo->fieldCount;
-	for (uint32_t i = 0; i < fieldCount; i++) {
+	uint64_t fieldCount = classInfo->fieldCount;
+	for (uint64_t i = 0; i < fieldCount; i++) {
 		if (strcmp(fieldName, fieldNameTable[i]) == 0) {
 			return i;
 		}
@@ -110,8 +110,8 @@ static int getFieldIndex(ClassInfo *classInfo, char *fieldName) {
 static void* getMethodPtr(ClassInfo *classInfo, char *methodName) {
 	char **methodNameTable = classInfo->methodNameTable;
 	void **methodTable = classInfo->methodTable;
-	uint32_t methodCount = classInfo->methodCount;
-	for (uint32_t i = 0; i < methodCount; i++) {
+	uint64_t methodCount = classInfo->methodCount;
+	for (uint64_t i = 0; i < methodCount; i++) {
 		if (strcmp(methodName, methodNameTable[i]) == 0) {
 			return methodTable[i];
 		}

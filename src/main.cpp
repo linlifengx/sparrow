@@ -2,13 +2,13 @@
 #include <unistd.h>
 #include <libgen.h>
 
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Value.h>
-#include <llvm/Type.h>
-#include <llvm/Function.h>
-#include <llvm/BasicBlock.h>
-#include <llvm/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <llvm/Support/FormattedStream.h>

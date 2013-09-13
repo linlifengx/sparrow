@@ -3,6 +3,7 @@
 
 #file
 ~*
+*~
 *.tmp
 *.out
 sprc

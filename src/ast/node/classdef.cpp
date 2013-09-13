@@ -1,4 +1,4 @@
-#include <llvm/GlobalVariable.h>
+#include <llvm/IR/GlobalVariable.h>
 
 #include "statement.h"
 #include "support.h"
@@ -77,10 +77,10 @@ void ClassDef::declGen() {
 			static_cast<Constant*>(builder.CreateBitCast(methodTable, ptrType)));
 	infos.push_back(
 			static_cast<Constant*>(builder.CreateIntToPtr(
-					builder.getInt32(fieldNameStrs.size()), ptrType)));
+					builder.getInt64(fieldNameStrs.size()), ptrType)));
 	infos.push_back(
 			static_cast<Constant*>(builder.CreateIntToPtr(
-					builder.getInt32(methodNameStrs.size()), ptrType)));
+					builder.getInt64(methodNameStrs.size()), ptrType)));
 
 	ArrayRef<Constant*> infosRef(infos);
 	classInfo->info = builder.CreateBitCast(
