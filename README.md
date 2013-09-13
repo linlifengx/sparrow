@@ -6,7 +6,7 @@ It also is a object-oriented language similar to JAVA. It integrates Boehm GC. P
 flex 2.5+  
 bison 2.4+  
 llvm 3.3  
-os linux x86_64
+os linux x86_64  
 
 ##Building
     git clone git://github.com/linlifengx/sparrow.git
